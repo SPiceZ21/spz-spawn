@@ -24,7 +24,6 @@ CreateThread(function()
 end)
 
 AddEventHandler("onClientMapStart", DisableSpawnManager)
-AddEventHandler("onPlayerJoining", DisableSpawnManager)
 
 --- Cinematic Camera System
 local function CreateCinematicCamera()
