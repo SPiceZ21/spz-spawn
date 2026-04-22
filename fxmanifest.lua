@@ -9,7 +9,6 @@ author 'SPiceZ-Core'
 ui_page 'ui/index.html'
 
 shared_scripts {
-    '@spz-lib/shared/main.lua',
     '@spz-core/config.lua',
     'config.lua'
 }

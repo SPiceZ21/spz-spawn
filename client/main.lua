@@ -29,10 +29,10 @@ end)
 
 AddEventHandler("onClientMapStart", DisableSpawnManager)
 
--- Signal server we are ready for the menu after the world is loaded
 CreateThread(function()
-    while not NetworkIsPlayerActive(PlayerId()) do Wait(100) end
-    print("^2[spz-spawn] Client active: requesting play menu.^7")
+    -- Wait for the game to settle and loading screen to fade (usually takes a few seconds)
+    Wait(2500)
+    print("^2[spz-spawn] Client ready: requesting play menu from server.^7")
     TriggerServerEvent("SPZ:requestPlayMenu")
 end)
 
@@ -53,6 +53,7 @@ local function CreateCinematicCamera()
     -- Optional: DOF or smooth movement could be added here
     SetCamFov(cam, 50.0)
 end
+
 
 local function DestroyCinematicCamera()
     if cam then
