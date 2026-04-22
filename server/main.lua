@@ -10,15 +10,23 @@ local function ShowPlayMenu(source, profile)
         rank   = profile.rank_name or "Rookie",
         tier   = profile.license_tier or 0,
         gender = profile.gender or 0,
+        playtime = exports['spz-identity']:GetPlaytime(source)
     })
 end
 
 --- Execute the physical spawn on the client.
 --- @param source number
 --- @param profile table
-local function SpawnPlayer(source, profile)
+local function SpawnPlayer(source, profile, spawnIndex)
     if not profile then return end
-    TriggerClientEvent("SPZ:spawnPlayerTarget", source, { gender = profile.gender or 0 })
+    
+    local spawnData = { gender = profile.gender or 0 }
+    if spawnIndex and Config.Spawns[spawnIndex] then
+        spawnData.coords = Config.Spawns[spawnIndex].coords.xyz
+        spawnData.heading = Config.Spawns[spawnIndex].coords.w
+    end
+
+    TriggerClientEvent("SPZ:spawnPlayerTarget", source, spawnData)
 end
 
 -- ── Event Bridging ────────────────────────────────────────────────────────
@@ -36,16 +44,15 @@ end)
 
 -- ── Network Handlers ──────────────────────────────────────────────────────
 
---- Player clicked ENTER in the play menu.
-RegisterNetEvent("SPZ:requestSpawn", function()
+--- Player clicked START in the spawn menu.
+RegisterNetEvent("SPZ:requestSpawn", function(spawnIndex)
     local src  = source
     local profile = exports["spz-identity"]:GetProfile(src)
     if not profile then return end
-    SpawnPlayer(src, profile)
+    SpawnPlayer(src, profile, spawnIndex)
 end)
 
---- Generic respawn request (kept for future modularity if death is ever re-enabled, 
---  but currently not called by this resource's client).
+--- Generic respawn request.
 RegisterNetEvent("SPZ:requestRespawn", function()
     local src  = source
     local profile = exports["spz-identity"]:GetProfile(src)

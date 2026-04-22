@@ -1,6 +1,7 @@
 -- client/main.lua
 
 local isSpawned = false
+local cam = nil
 
 --- Disable default spawnmanager as early as possible.
 local function DisableSpawnManager()
@@ -12,6 +13,32 @@ end
 DisableSpawnManager()
 AddEventHandler("onClientMapStart", DisableSpawnManager)
 
+--- Cinematic Camera System
+local function CreateCinematicCamera()
+    local ped = PlayerPedId()
+    local coords = GetEntityCoords(ped)
+    
+    -- Position camera in front of the player, slightly up
+    local camCoords = GetOffsetFromEntityInWorldCoords(ped, 0.0, 3.0, 1.0)
+    
+    cam = CreateCam("DEFAULT_SCRIPTED_CAMERA", true)
+    SetCamCoord(cam, camCoords.x, camCoords.y, camCoords.z)
+    PointCamAtEntity(cam, ped, 0.0, 0.0, 0.0, true)
+    SetCamActive(cam, true)
+    RenderScriptCams(true, true, 1000, true, true)
+    
+    -- Optional: DOF or smooth movement could be added here
+    SetCamFov(cam, 50.0)
+end
+
+local function DestroyCinematicCamera()
+    if cam then
+        RenderScriptCams(false, true, 1000, true, true)
+        DestroyCam(cam, false)
+        cam = nil
+    end
+end
+
 --- Physical spawn logic.
 --- @param data table Contains gender and optionally coords/heading.
 RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
@@ -19,6 +46,14 @@ RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
 
     DoScreenFadeOut(500)
     Wait(500)
+
+    -- Cleanup UI & Camera
+    SendNUIMessage({ type = 'hide' })
+    SetNuiFocus(false, false)
+    DestroyCinematicCamera()
+    FreezeEntityPosition(PlayerPedId(), false)
+    DisplayHud(true)
+    DisplayRadar(true)
 
     -- Model management
     RequestModel(modelHash)
@@ -50,16 +85,37 @@ RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
 end)
 
 --- Shutdown loading screen after identity is ready and play menu is shown.
-RegisterNetEvent("SPZ:showPlayMenu", function()
+RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
     ShutdownLoadingScreen()
     ShutdownLoadingScreenNui()
+    
+    -- Activate cinematic mode
+    local ped = PlayerPedId()
+    FreezeEntityPosition(ped, true)
+    SetEntityVisible(ped, true)
+    DisplayHud(false)
+    DisplayRadar(false)
+    
+    CreateCinematicCamera()
+    
+    -- Show NUI
+    SendNUIMessage({
+        type = 'show',
+        playerData = playerData,
+        spawns = Config.Spawns
+    })
+    SetNuiFocus(true, true)
 end)
 
---- Generic teleport (formerly tpToSafeZone)
+--- NUI Callbacks
+RegisterNUICallback('startSpawn', function(data, cb)
+    TriggerServerEvent("SPZ:requestSpawn", data.index)
+    cb('ok')
+end)
+
+--- Generic teleport
 RegisterNetEvent("SPZ:teleportTo", function(coords, heading)
     local ped = PlayerPedId()
     SetEntityCoords(ped, coords.x, coords.y, coords.z, false, false, false, true)
     if heading then SetEntityHeading(ped, heading) end
 end)
-
--- Note: Death monitor removed as per requirements.

@@ -6,9 +6,11 @@ description 'SPiceZ-Core — Standalone Spawning Manager'
 version '1.0.0'
 author 'SPiceZ-Core'
 
+ui_page 'ui/index.html'
+
 shared_scripts {
     '@spz-lib/shared/main.lua',
-    '@spz-core/config.lua', -- Use core config for SafeZone coords
+    '@spz-core/config.lua',
     'config.lua'
 }
 
@@ -18,6 +20,14 @@ client_scripts {
 
 server_scripts {
     'server/main.lua'
+}
+
+files {
+    'ui/index.html',
+    'ui/style.css',
+    'ui/script.js',
+    'ui/public/logo.png',
+    'ui/public/fonts/*.ttf'
 }
 
 dependencies {
