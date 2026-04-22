@@ -3,15 +3,28 @@
 local isSpawned = false
 local cam = nil
 
---- Disable default spawnmanager as early as possible.
+--- Disable default spawnmanager aggressively.
 local function DisableSpawnManager()
-    if GetResourceState("spawnmanager") == "started" then
+    -- Try immediately
+    pcall(function()
         exports.spawnmanager:setAutoSpawn(false)
-    end
+        exports.spawnmanager:forceGameState('TERMINATED')
+    end)
 end
 
-DisableSpawnManager()
+-- Run multiple times to ensure we catch it
+CreateThread(function()
+    while true do
+        DisableSpawnManager()
+        if GetResourceState("spawnmanager") == "started" then
+            break
+        end
+        Wait(100)
+    end
+end)
+
 AddEventHandler("onClientMapStart", DisableSpawnManager)
+AddEventHandler("onPlayerJoining", DisableSpawnManager)
 
 --- Cinematic Camera System
 local function CreateCinematicCamera()

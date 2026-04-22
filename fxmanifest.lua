@@ -31,6 +31,7 @@ files {
 }
 
 dependencies {
+    'spawnmanager',
     'spz-lib',
     'spz-core',
     'spz-identity'
