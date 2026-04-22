@@ -102,8 +102,14 @@ end)
 
 --- Shutdown loading screen after identity is ready and play menu is shown.
 RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
+    print("^2[spz-spawn] DEBUG: Client received showPlayMenu^7")
+    
+    -- Force kill all loading screens
     ShutdownLoadingScreen()
     ShutdownLoadingScreenNui()
+    
+    -- Ensure screen is clear
+    DoScreenFadeIn(0)
     
     -- Activate cinematic mode
     local ped = PlayerPedId()
@@ -115,6 +121,7 @@ RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
     CreateCinematicCamera()
     
     -- Show NUI
+    print("^2[spz-spawn] DEBUG: Opening NUI menu^7")
     SendNUIMessage({
         type = 'show',
         playerData = playerData,
@@ -123,11 +130,25 @@ RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
     SetNuiFocus(true, true)
 end)
 
+print("^2[spz-spawn] Client script initialized.^7")
+
 --- NUI Callbacks
 RegisterNUICallback('startSpawn', function(data, cb)
+    print("^2[spz-spawn] NUI callback: startSpawn index " .. tostring(data.index) .. "^7")
     TriggerServerEvent("SPZ:requestSpawn", data.index)
     cb('ok')
 end)
+
+--- Debug Command
+RegisterCommand("testspawn", function()
+    print("^2[spz-spawn] Manual test: triggering showPlayMenu^7")
+    TriggerEvent("SPZ:showPlayMenu", {
+        name = "Tester",
+        rank = "Developer",
+        tier = 3,
+        gender = 1
+    })
+end, false)
 
 --- Generic teleport
 RegisterNetEvent("SPZ:teleportTo", function(coords, heading)

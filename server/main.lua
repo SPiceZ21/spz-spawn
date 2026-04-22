@@ -33,11 +33,13 @@ end
 
 --- Returning players: Triggered by spz-identity after successful connection/DB load.
 AddEventHandler("SPZ:playerReady", function(source, profile)
+    print("^2[spz-spawn] DEBUG: Received playerReady for source " .. tostring(source) .. "^7")
     ShowPlayMenu(source, profile)
 end)
 
 --- New players: Triggered by character creation after profile is initialized.
 AddEventHandler("SPZ:characterReady", function(source)
+    print("^2[spz-spawn] DEBUG: Received characterReady for source " .. tostring(source) .. "^7")
     local profile = exports["spz-identity"]:GetProfile(source)
     ShowPlayMenu(source, profile)
 end)
