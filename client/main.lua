@@ -29,6 +29,13 @@ end)
 
 AddEventHandler("onClientMapStart", DisableSpawnManager)
 
+-- Signal server we are ready for the menu after the world is loaded
+CreateThread(function()
+    while not NetworkIsPlayerActive(PlayerId()) do Wait(100) end
+    print("^2[spz-spawn] Client active: requesting play menu.^7")
+    TriggerServerEvent("SPZ:requestPlayMenu")
+end)
+
 --- Cinematic Camera System
 local function CreateCinematicCamera()
     local ped = PlayerPedId()

@@ -44,6 +44,16 @@ AddEventHandler("SPZ:characterReady", function(source)
     ShowPlayMenu(source, profile)
 end)
 
+--- Explicit request from client when they finish loading
+RegisterNetEvent("SPZ:requestPlayMenu", function()
+    local src = source
+    local profile = exports["spz-identity"]:GetProfile(src)
+    if profile then
+        print("^2[spz-spawn] DEBUG: Servicing play menu request for " .. tostring(src) .. "^7")
+        ShowPlayMenu(src, profile)
+    end
+end)
+
 -- ── Network Handlers ──────────────────────────────────────────────────────
 
 --- Player clicked START in the spawn menu.
