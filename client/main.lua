@@ -5,20 +5,24 @@ local cam = nil
 
 --- Disable default spawnmanager aggressively.
 local function DisableSpawnManager()
-    -- Try immediately
     pcall(function()
         exports.spawnmanager:setAutoSpawn(false)
-        exports.spawnmanager:forceGameState('TERMINATED')
+        exports.spawnmanager:forceGameState('MANUAL')
     end)
 end
 
--- Run multiple times to ensure we catch it
+-- Run immediately and on start
+DisableSpawnManager()
+
+AddEventHandler('onClientResourceStart', function(resourceName)
+    if GetCurrentResourceName() ~= resourceName then return end
+    DisableSpawnManager()
+end)
+
+-- Backup loop for 5 seconds
 CreateThread(function()
-    while true do
+    for i = 1, 50 do
         DisableSpawnManager()
-        if GetResourceState("spawnmanager") == "started" then
-            break
-        end
         Wait(100)
     end
 end)
