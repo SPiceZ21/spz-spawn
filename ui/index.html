@@ -13,43 +13,38 @@
             <img src="public/logo.png" alt="SPiceZ Logo">
         </div>
 
-        <!-- Player Info (Top Right) -->
-        <div class="player-info-panel">
-            <div class="info-content">
-                <span class="player-label">DRIVER</span>
-                <h1 id="player-name">RACER NAME</h1>
-                <div class="playtime-container">
-                    <span id="playtime-val">00 HRS 00 MINS</span>
+        <!-- Player Nametag (Top Right) -->
+        <div class="nametag-container">
+            <div class="nametag-state" id="player-state">FREEROAM</div>
+            <div class="nametag-main">
+                <div class="bg-num" id="nametag-bg-num">D</div>
+                <img class="nametag-avatar" id="player-avatar" src="https://i.imgur.com/8NzA8m8.png" alt="Avatar">
+                <div class="nametag-details">
+                    <div class="nametag-top">
+                        <span class="nametag-name" id="player-name">RACER NAME</span>
+                        <span class="nametag-crew" id="player-crew">SPZ</span>
+                    </div>
+                    <div class="nametag-bottom">
+                        <span class="nametag-license" id="player-license">D CLASS</span>
+                        <span class="nametag-playtime" id="playtime-val">00 HRS 00 MINS</span>
+                    </div>
                 </div>
             </div>
-            <div class="accent-bar"></div>
         </div>
 
-        <!-- Spawn Selector (Bottom Center) -->
-        <div class="spawn-selector-container">
-            <div class="selector-header">SELECT SPAWN LOCATION</div>
-            <div class="selector-main">
-                <button class="nav-btn prev" onclick="prevSpawn()">
-                    <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-                </button>
-                <div class="spawn-display">
-                    <span id="spawn-label">LEGION SQUARE</span>
-                </div>
-                <button class="nav-btn next" onclick="nextSpawn()">
-                    <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-                </button>
-            </div>
-            <div class="selector-dots" id="selector-dots">
-                <!-- Dots will be generated here -->
+        <!-- Spawn Selector (Left Panel) -->
+        <div class="spawn-left-panel">
+            <div class="panel-header">SELECT DEPLOYMENT ZONE</div>
+            <div id="location-list">
+                <!-- Location items will be generated here -->
             </div>
         </div>
 
         <!-- Start Button (Bottom Right) -->
         <div class="start-button-container">
             <button id="start-btn" onclick="startSpawn()">
-                <div class="btn-content">
-                    <span class="btn-label">START</span>
-                </div>
+                <span class="btn-text">START</span>
+                <svg class="btn-icon" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9v-18z"/></svg>
             </button>
         </div>
 
