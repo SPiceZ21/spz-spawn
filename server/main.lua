@@ -12,6 +12,9 @@ local function ShowPlayMenu(source, profile)
         gender = profile.gender or 0,
         playtime = exports['spz-identity']:GetPlaytime(source)
     })
+    
+    -- Ensure state is MENU when in the play menu
+    exports["spz-core"]:SetPlayerState(source, "MENU")
 end
 
 --- Execute the physical spawn on the client.
@@ -27,6 +30,9 @@ local function SpawnPlayer(source, profile, spawnIndex)
     end
 
     TriggerClientEvent("SPZ:spawnPlayerTarget", source, spawnData)
+    
+    -- Set state to FREEROAM after spawning
+    exports["spz-core"]:SetPlayerState(source, "FREEROAM")
 end
 
 -- ── Event Bridging ────────────────────────────────────────────────────────
