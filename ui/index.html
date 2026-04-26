@@ -4,15 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SPZ · Spawn</title>
-<link rel="stylesheet" href="../../spz-ui/components/styles/spz-ui.css">
+<link rel="stylesheet" href="spz-ui.css">
 <style>
   html, body { width: 100vw; height: 100vh; overflow: hidden; background: transparent; }
   #root { position: fixed; inset: 0; pointer-events: none; }
-  /* Positioned panels */
-  .player-card   { position: absolute; top: 5vh; right: 5vw; pointer-events: auto; width: 280px; }
-  .location-panel{ position: absolute; bottom: 8vh; left: 5vw; pointer-events: auto; width: 300px; }
-  .start-wrap    { position: absolute; bottom: 8vh; right: 5vw; pointer-events: auto; }
-  /* Location rows */
+  .player-card    { position: absolute; top: 5vh; right: 5vw; pointer-events: auto; width: 280px; }
+  .location-panel { position: absolute; bottom: 8vh; left: 5vw; pointer-events: auto; width: 300px; }
+  .start-wrap     { position: absolute; bottom: 8vh; right: 5vw; pointer-events: auto; }
   .loc-item {
     display: flex; align-items: center; gap: 12px;
     padding: 10px 12px; border-radius: var(--spz-radius-2); cursor: pointer;
@@ -23,20 +21,9 @@
   .loc-item.active { background: var(--spz-surface-2); border-color: var(--spz-line); box-shadow: inset 2px 0 0 var(--spz-orange); }
   .loc-num  { font-family: var(--spz-font-mono); font-size: 11px; color: var(--spz-orange); font-weight: 600; min-width: 24px; }
   .loc-name { font-size: 13px; color: var(--spz-fg-1); font-weight: 500; }
-  /* Avatar */
-  .avatar-ring {
-    width: 56px; height: 56px; border-radius: 50%;
-    border: 2px solid var(--spz-orange);
-    overflow: hidden; flex-shrink: 0;
-  }
+  .avatar-ring { width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--spz-orange); overflow: hidden; flex-shrink: 0; }
   .avatar-ring img { width: 100%; height: 100%; object-fit: cover; }
-  /* Start button */
-  .start-btn {
-    display: inline-flex; align-items: stretch;
-    border: 1px solid var(--spz-orange); border-radius: var(--spz-radius-3);
-    overflow: hidden; cursor: pointer; box-shadow: var(--spz-shadow-glow-soft);
-    transition: box-shadow var(--spz-dur-2) var(--spz-ease-out);
-  }
+  .start-btn { display: inline-flex; align-items: stretch; border: 1px solid var(--spz-orange); border-radius: var(--spz-radius-3); overflow: hidden; cursor: pointer; box-shadow: var(--spz-shadow-glow-soft); transition: box-shadow var(--spz-dur-2) var(--spz-ease-out); }
   .start-btn:hover { box-shadow: 0 0 20px rgba(255,98,0,0.4), 0 0 0 1px rgba(255,98,0,0.3); }
   .start-btn-text { background: var(--spz-orange); color: #0a0a0a; font-family: var(--spz-font-display); font-weight: 700; font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; padding: 0 20px; display: flex; align-items: center; }
   .start-btn-icon { background: rgba(255,98,0,0.15); border-left: 1px solid rgba(255,98,0,0.4); display: flex; align-items: center; padding: 0 14px; color: var(--spz-orange); }
@@ -45,16 +32,17 @@
 <body>
 <div id="root"></div>
 
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/preact@latest/dist/preact.min.js"></script>
+<script src="https://unpkg.com/preact@latest/hooks/dist/hooks.umd.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 
-<script type="text/babel" src="../../spz-ui/components/Icon.jsx"></script>
-<script type="text/babel" src="../../spz-ui/components/Badge.jsx"></script>
+<script type="text/babel" src="components.jsx"></script>
 
 <script type="text/babel">
-const { useState, useEffect, useRef } = React;
+/** @jsx h */
+const { h, render, Fragment } = preact;
+const { useState, useEffect, useRef } = preactHooks;
 
 function formatPlaytime(seconds) {
   const hrs  = Math.floor(seconds / 3600);
@@ -112,6 +100,7 @@ function App() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ index: selected + 1 }),
     }).catch(() => {});
+    setVisible(false);
   };
 
   if (!visible) return null;
@@ -119,8 +108,7 @@ function App() {
   const licenseClass = player.licenseClass || 'D';
 
   return (
-    <>
-      {/* Player card — top right */}
+    <Fragment>
       <div className="player-card">
         <div style={{ background: 'var(--spz-surface-1)', border: '1px solid var(--spz-line)', borderRadius: 'var(--spz-radius-4)', boxShadow: 'var(--spz-shadow-3)', overflow: 'hidden' }}>
           <div style={{ background: 'var(--spz-surface-2)', borderBottom: '1px solid var(--spz-line)', padding: '6px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -147,7 +135,6 @@ function App() {
         </div>
       </div>
 
-      {/* Location panel — bottom left */}
       <div className="location-panel">
         <div style={{ background: 'var(--spz-surface-1)', border: '1px solid var(--spz-line)', borderRadius: 'var(--spz-radius-4)', boxShadow: 'var(--spz-shadow-3)', overflow: 'hidden' }}>
           <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid var(--spz-line)', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -167,13 +154,12 @@ function App() {
             <Icon name="chevron-down" size={12} style={{ color: 'var(--spz-fg-3)' }} />
             <span style={{ fontSize: 11, color: 'var(--spz-fg-3)' }}>navigate</span>
             <span style={{ color: 'var(--spz-fg-4)', fontSize: 11, margin: '0 2px' }}>·</span>
-            <span className="spz-kbd">↵</span>
+            <Kbd>↵</Kbd>
             <span style={{ fontSize: 11, color: 'var(--spz-fg-3)' }}>confirm</span>
           </div>
         </div>
       </div>
 
-      {/* Start button — bottom right */}
       <div className="start-wrap">
         <div className="start-btn" onClick={doStart} style={{ height: 44 }}>
           <div className="start-btn-text">Start</div>
@@ -182,11 +168,11 @@ function App() {
           </div>
         </div>
       </div>
-    </>
+    </Fragment>
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+render(<App />, document.getElementById('root'));
 </script>
 </body>
 </html>

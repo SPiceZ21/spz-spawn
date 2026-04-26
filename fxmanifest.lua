@@ -26,7 +26,11 @@ files {
     'ui/style.css',
     'ui/script.js',
     'ui/public/logo.png',
-    'ui/public/fonts/*.ttf'
+    'ui/public/fonts/*.ttf',
+    -- Shared UI
+    '../spz-ui/theme.css',
+    '../spz-ui/components/*.jsx',
+    '../spz-ui/components/styles/*.css'
 }
 
 dependencies {
