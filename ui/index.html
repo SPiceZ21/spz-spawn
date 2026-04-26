@@ -1,57 +1,192 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SPiceZ Spawn Menu</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SPZ · Spawn</title>
+<link rel="stylesheet" href="../../spz-ui/components/styles/spz-ui.css">
+<style>
+  html, body { width: 100vw; height: 100vh; overflow: hidden; background: transparent; }
+  #root { position: fixed; inset: 0; pointer-events: none; }
+  /* Positioned panels */
+  .player-card   { position: absolute; top: 5vh; right: 5vw; pointer-events: auto; width: 280px; }
+  .location-panel{ position: absolute; bottom: 8vh; left: 5vw; pointer-events: auto; width: 300px; }
+  .start-wrap    { position: absolute; bottom: 8vh; right: 5vw; pointer-events: auto; }
+  /* Location rows */
+  .loc-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: var(--spz-radius-2); cursor: pointer;
+    transition: background var(--spz-dur-1) var(--spz-ease-out);
+    border: 1px solid transparent; margin-bottom: 2px;
+  }
+  .loc-item:hover  { background: var(--spz-surface-2); }
+  .loc-item.active { background: var(--spz-surface-2); border-color: var(--spz-line); box-shadow: inset 2px 0 0 var(--spz-orange); }
+  .loc-num  { font-family: var(--spz-font-mono); font-size: 11px; color: var(--spz-orange); font-weight: 600; min-width: 24px; }
+  .loc-name { font-size: 13px; color: var(--spz-fg-1); font-weight: 500; }
+  /* Avatar */
+  .avatar-ring {
+    width: 56px; height: 56px; border-radius: 50%;
+    border: 2px solid var(--spz-orange);
+    overflow: hidden; flex-shrink: 0;
+  }
+  .avatar-ring img { width: 100%; height: 100%; object-fit: cover; }
+  /* Start button */
+  .start-btn {
+    display: inline-flex; align-items: stretch;
+    border: 1px solid var(--spz-orange); border-radius: var(--spz-radius-3);
+    overflow: hidden; cursor: pointer; box-shadow: var(--spz-shadow-glow-soft);
+    transition: box-shadow var(--spz-dur-2) var(--spz-ease-out);
+  }
+  .start-btn:hover { box-shadow: 0 0 20px rgba(255,98,0,0.4), 0 0 0 1px rgba(255,98,0,0.3); }
+  .start-btn-text { background: var(--spz-orange); color: #0a0a0a; font-family: var(--spz-font-display); font-weight: 700; font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; padding: 0 20px; display: flex; align-items: center; }
+  .start-btn-icon { background: rgba(255,98,0,0.15); border-left: 1px solid rgba(255,98,0,0.4); display: flex; align-items: center; padding: 0 14px; color: var(--spz-orange); }
+</style>
 </head>
 <body>
-    <div id="app" style="display: none;">
-        <!-- Logo (Top Left) -->
-        <div class="logo-container">
-            <img src="public/logo.png" alt="SPiceZ Logo">
-        </div>
+<div id="root"></div>
 
-        <!-- Player Nametag (Top Right) -->
-        <div class="nametag-container">
-            <div class="nametag-state" id="player-state">FREEROAM</div>
-            <div class="nametag-main">
-                <div class="bg-num" id="nametag-bg-num">D</div>
-                <img class="nametag-avatar" id="player-avatar" src="https://i.imgur.com/8NzA8m8.png" alt="Avatar">
-                <div class="nametag-details">
-                    <div class="nametag-top">
-                        <span class="nametag-name" id="player-name">RACER NAME</span>
-                        <span class="nametag-crew" id="player-crew">SPZ</span>
-                    </div>
-                    <div class="nametag-bottom">
-                        <span class="nametag-license" id="player-license">D CLASS</span>
-                        <span class="nametag-playtime" id="playtime-val">00 HRS 00 MINS</span>
-                    </div>
-                </div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<script type="text/babel" src="../../spz-ui/components/Icon.jsx"></script>
+<script type="text/babel" src="../../spz-ui/components/Badge.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+function formatPlaytime(seconds) {
+  const hrs  = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  return `${String(hrs).padStart(2,'0')} HRS ${String(mins).padStart(2,'0')} MINS`;
+}
+
+function App() {
+  const [visible, setVisible]   = useState(false);
+  const [player, setPlayer]     = useState({});
+  const [spawns, setSpawns]     = useState([]);
+  const [selected, setSelected] = useState(0);
+  const listRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      const data = e.data;
+      if (data.type === 'show') {
+        setPlayer(data.playerData || {});
+        setSpawns(data.spawns || []);
+        setSelected(0);
+        setVisible(true);
+      } else if (data.type === 'hide') {
+        setVisible(false);
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  useEffect(() => {
+    if (!visible) return;
+    const onKey = (e) => {
+      if (e.key === 'ArrowDown' || e.key === 's')
+        setSelected(i => (i + 1) % Math.max(1, spawns.length));
+      else if (e.key === 'ArrowUp' || e.key === 'w')
+        setSelected(i => (i - 1 + Math.max(1, spawns.length)) % Math.max(1, spawns.length));
+      else if (e.key === 'Enter') doStart();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [visible, spawns, selected]);
+
+  useEffect(() => {
+    if (listRef.current) {
+      const active = listRef.current.querySelector('.active');
+      active?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [selected]);
+
+  useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
+
+  const doStart = () => {
+    fetch(`https://${GetParentResourceName()}/startSpawn`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ index: selected + 1 }),
+    }).catch(() => {});
+  };
+
+  if (!visible) return null;
+
+  const licenseClass = player.licenseClass || 'D';
+
+  return (
+    <>
+      {/* Player card — top right */}
+      <div className="player-card">
+        <div style={{ background: 'var(--spz-surface-1)', border: '1px solid var(--spz-line)', borderRadius: 'var(--spz-radius-4)', boxShadow: 'var(--spz-shadow-3)', overflow: 'hidden' }}>
+          <div style={{ background: 'var(--spz-surface-2)', borderBottom: '1px solid var(--spz-line)', padding: '6px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="spz-eyebrow" style={{ color: 'var(--spz-orange)' }}>{player.stateText || 'IDLE'}</span>
+            <Badge variant="orange">{licenseClass} CLASS</Badge>
+          </div>
+          <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div className="avatar-ring">
+              <img src={player.avatar || 'https://i.imgur.com/8NzA8m8.png'} alt="" />
             </div>
-        </div>
-
-        <!-- Spawn Selector (Left Panel) -->
-        <div class="spawn-left-panel">
-            <div class="panel-header">SELECT DEPLOYMENT ZONE</div>
-            <div id="location-list">
-                <!-- Location items will be generated here -->
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                <span style={{ fontFamily: 'var(--spz-font-display)', fontWeight: 700, fontSize: 15, color: 'var(--spz-fg-1)', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                  {player.name || 'Racer'}
+                </span>
+                {player.crew && <Badge variant="orange" style={{ flexShrink: 0 }}>{player.crew}</Badge>}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--spz-fg-3)' }}>
+                <Icon name="clock" size={11} />
+                <span className="spz-mono" style={{ fontSize: 11 }}>{formatPlaytime(player.playtime || 0)}</span>
+              </div>
             </div>
+          </div>
         </div>
+      </div>
 
-        <!-- Start Button (Bottom Right) -->
-        <div class="start-button-container">
-            <button id="start-btn" onclick="startSpawn()">
-                <span class="btn-text">START</span>
-                <svg class="btn-icon" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9v-18z"/></svg>
-            </button>
+      {/* Location panel — bottom left */}
+      <div className="location-panel">
+        <div style={{ background: 'var(--spz-surface-1)', border: '1px solid var(--spz-line)', borderRadius: 'var(--spz-radius-4)', boxShadow: 'var(--spz-shadow-3)', overflow: 'hidden' }}>
+          <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid var(--spz-line)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="map-pin" size={14} style={{ color: 'var(--spz-orange)' }} />
+            <span style={{ fontFamily: 'var(--spz-font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--spz-fg-2)' }}>Select Deployment Zone</span>
+          </div>
+          <div ref={listRef} style={{ maxHeight: 220, overflowY: 'auto', padding: '6px 8px' }}>
+            {spawns.map((s, i) => (
+              <div key={i} className={`loc-item${i === selected ? ' active' : ''}`} onClick={() => setSelected(i)}>
+                <span className="loc-num">{String(i + 1).padStart(2, '0')}</span>
+                <span className="loc-name">{s.label}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ padding: '8px 12px', borderTop: '1px solid var(--spz-line)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="chevron-up" size={12} style={{ color: 'var(--spz-fg-3)' }} />
+            <Icon name="chevron-down" size={12} style={{ color: 'var(--spz-fg-3)' }} />
+            <span style={{ fontSize: 11, color: 'var(--spz-fg-3)' }}>navigate</span>
+            <span style={{ color: 'var(--spz-fg-4)', fontSize: 11, margin: '0 2px' }}>·</span>
+            <span className="spz-kbd">↵</span>
+            <span style={{ fontSize: 11, color: 'var(--spz-fg-3)' }}>confirm</span>
+          </div>
         </div>
+      </div>
 
-        <!-- Background Overlay (Vignette) -->
-        <div class="vignette"></div>
-    </div>
+      {/* Start button — bottom right */}
+      <div className="start-wrap">
+        <div className="start-btn" onClick={doStart} style={{ height: 44 }}>
+          <div className="start-btn-text">Start</div>
+          <div className="start-btn-icon">
+            <Icon name="play" size={16} />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
 
-    <script src="script.js"></script>
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
 </body>
 </html>
