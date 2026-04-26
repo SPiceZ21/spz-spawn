@@ -319,10 +319,10 @@ function KbdGroup({ keys }) {
   return (
     <span className="spz-kbd-group">
       {keys.map((k, i) => (
-        <React.Fragment key={i}>
+        <Fragment key={i}>
           {i > 0 && <span className="spz-kbd-plus">+</span>}
           <Kbd>{k}</Kbd>
-        </React.Fragment>
+        </Fragment>
       ))}
     </span>
   );

@@ -4,29 +4,48 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SPZ · Spawn</title>
-<link rel="stylesheet" href="spz-ui.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
-  html, body { width: 100vw; height: 100vh; overflow: hidden; background: transparent; }
-  #root { position: fixed; inset: 0; pointer-events: none; }
-  .player-card    { position: absolute; top: 5vh; right: 5vw; pointer-events: auto; width: 280px; }
-  .location-panel { position: absolute; bottom: 8vh; left: 5vw; pointer-events: auto; width: 300px; }
-  .start-wrap     { position: absolute; bottom: 8vh; right: 5vw; pointer-events: auto; }
-  .loc-item {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 12px; border-radius: var(--spz-radius-2); cursor: pointer;
-    transition: background var(--spz-dur-1) var(--spz-ease-out);
-    border: 1px solid transparent; margin-bottom: 2px;
-  }
-  .loc-item:hover  { background: var(--spz-surface-2); }
-  .loc-item.active { background: var(--spz-surface-2); border-color: var(--spz-line); box-shadow: inset 2px 0 0 var(--spz-orange); }
-  .loc-num  { font-family: var(--spz-font-mono); font-size: 11px; color: var(--spz-orange); font-weight: 600; min-width: 24px; }
-  .loc-name { font-size: 13px; color: var(--spz-fg-1); font-weight: 500; }
-  .avatar-ring { width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--spz-orange); overflow: hidden; flex-shrink: 0; }
-  .avatar-ring img { width: 100%; height: 100%; object-fit: cover; }
-  .start-btn { display: inline-flex; align-items: stretch; border: 1px solid var(--spz-orange); border-radius: var(--spz-radius-3); overflow: hidden; cursor: pointer; box-shadow: var(--spz-shadow-glow-soft); transition: box-shadow var(--spz-dur-2) var(--spz-ease-out); }
-  .start-btn:hover { box-shadow: 0 0 20px rgba(255,98,0,0.4), 0 0 0 1px rgba(255,98,0,0.3); }
-  .start-btn-text { background: var(--spz-orange); color: #0a0a0a; font-family: var(--spz-font-display); font-weight: 700; font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; padding: 0 20px; display: flex; align-items: center; }
-  .start-btn-icon { background: rgba(255,98,0,0.15); border-left: 1px solid rgba(255,98,0,0.4); display: flex; align-items: center; padding: 0 14px; color: var(--spz-orange); }
+@font-face { font-family: 'Panchang'; src: url('fonts/Panchang-Variable.ttf') format('truetype'); font-weight: 100 900; }
+
+:root {
+  --spz-bg: #07080A; --spz-surface-1: #0E1014; --spz-surface-2: #14171C; --spz-surface-3: #1B1F26;
+  --spz-line: rgba(255,255,255,0.07); --spz-line-strong: rgba(255,255,255,0.13);
+  --spz-fg-1: #F0F2F5; --spz-fg-2: #A8AEBB; --spz-fg-3: #5C6370; --spz-fg-4: #3A3F4A;
+  --spz-orange: #FF6200; --spz-orange-deep: #D14E00;
+  --spz-font-display: 'Panchang', 'Inter', sans-serif;
+  --spz-font-body: 'Inter', system-ui, sans-serif;
+  --spz-font-mono: 'JetBrains Mono', monospace;
+  --spz-radius-2: 4px; --spz-radius-3: 6px; --spz-radius-4: 8px;
+  --spz-shadow-3: 0 8px 24px rgba(0,0,0,0.6), 0 2px 6px rgba(0,0,0,0.4);
+  --spz-shadow-glow-soft: 0 0 12px rgba(255,98,0,0.25), 0 0 0 1px rgba(255,98,0,0.15);
+  --spz-dur-1: 80ms; --spz-dur-2: 140ms; --spz-ease-out: cubic-bezier(0,0,0.2,1);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;width:100vw;height:100vh;overflow:hidden;background:transparent;font-family:var(--spz-font-body);font-size:13px;-webkit-font-smoothing:antialiased;}
+#root{position:fixed;inset:0;pointer-events:none;}
+.player-card{position:absolute;top:5vh;right:5vw;pointer-events:auto;width:280px;}
+.location-panel{position:absolute;bottom:8vh;left:5vw;pointer-events:auto;width:300px;}
+.start-wrap{position:absolute;bottom:8vh;right:5vw;pointer-events:auto;}
+.loc-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--spz-radius-2);cursor:pointer;transition:background var(--spz-dur-1) var(--spz-ease-out);border:1px solid transparent;margin-bottom:2px;}
+.loc-item:hover{background:var(--spz-surface-2);}
+.loc-item.active{background:var(--spz-surface-2);border-color:var(--spz-line);box-shadow:inset 2px 0 0 var(--spz-orange);}
+.loc-num{font-family:var(--spz-font-mono);font-size:11px;color:var(--spz-orange);font-weight:600;min-width:24px;}
+.loc-name{font-size:13px;color:var(--spz-fg-1);font-weight:500;}
+.avatar-ring{width:56px;height:56px;border-radius:50%;border:2px solid var(--spz-orange);overflow:hidden;flex-shrink:0;}
+.avatar-ring img{width:100%;height:100%;object-fit:cover;}
+.start-btn{display:inline-flex;align-items:stretch;border:1px solid var(--spz-orange);border-radius:var(--spz-radius-3);overflow:hidden;cursor:pointer;box-shadow:var(--spz-shadow-glow-soft);transition:box-shadow var(--spz-dur-2) var(--spz-ease-out);}
+.start-btn:hover{box-shadow:0 0 20px rgba(255,98,0,0.4),0 0 0 1px rgba(255,98,0,0.3);}
+.start-btn-text{background:var(--spz-orange);color:#0a0a0a;font-family:var(--spz-font-display);font-weight:700;font-size:14px;letter-spacing:0.06em;text-transform:uppercase;padding:0 20px;display:flex;align-items:center;}
+.start-btn-icon{background:rgba(255,98,0,0.15);border-left:1px solid rgba(255,98,0,0.4);display:flex;align-items:center;padding:0 14px;color:var(--spz-orange);}
+.spz-eyebrow{font-family:var(--spz-font-mono);font-size:11px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:var(--spz-fg-3);}
+.spz-mono{font-family:var(--spz-font-mono);font-size:12px;font-variant-numeric:tabular-nums;}
+.spz-badge{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:var(--spz-radius-2);font-family:var(--spz-font-mono);font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;background:var(--spz-surface-3);color:var(--spz-fg-2);border:1px solid var(--spz-line);}
+.spz-badge[data-variant="orange"]{background:rgba(255,98,0,0.12);color:var(--spz-orange);border-color:rgba(255,98,0,0.3);}
+.spz-kbd{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;font-family:var(--spz-font-mono);font-size:10px;font-weight:600;background:var(--spz-surface-3);border:1px solid var(--spz-line-strong);border-bottom-width:2px;border-radius:3px;color:var(--spz-fg-2);}
+*::-webkit-scrollbar{width:6px;} *::-webkit-scrollbar-track{background:transparent;} *::-webkit-scrollbar-thumb{background:var(--spz-surface-3);border-radius:3px;}
 </style>
 </head>
 <body>
@@ -37,15 +56,23 @@
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 
-<script type="text/babel" src="components.jsx"></script>
-
 <script type="text/babel">
 /** @jsx h */
 const { h, render, Fragment } = preact;
 const { useState, useEffect, useRef } = preactHooks;
 
+function Icon({ name, size = 14, strokeWidth = 1.75, ...rest }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (window.lucide && ref.current) window.lucide.createIcons({ nameAttr: 'data-lucide', icons: window.lucide.icons, attrs: {} });
+  }, [name]);
+  return <i ref={ref} data-lucide={name} style={{ width: size, height: size, display: 'inline-flex', strokeWidth }} {...rest} />;
+}
+function Badge({ variant, children, ...rest }) { return <span className="spz-badge" data-variant={variant} {...rest}>{children}</span>; }
+function Kbd({ children }) { return <span className="spz-kbd">{children}</span>; }
+
 function formatPlaytime(seconds) {
-  const hrs  = Math.floor(seconds / 3600);
+  const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
   return `${String(hrs).padStart(2,'0')} HRS ${String(mins).padStart(2,'0')} MINS`;
 }
@@ -60,14 +87,8 @@ function App() {
   useEffect(() => {
     const handler = (e) => {
       const data = e.data;
-      if (data.type === 'show') {
-        setPlayer(data.playerData || {});
-        setSpawns(data.spawns || []);
-        setSelected(0);
-        setVisible(true);
-      } else if (data.type === 'hide') {
-        setVisible(false);
-      }
+      if (data.type === 'show') { setPlayer(data.playerData || {}); setSpawns(data.spawns || []); setSelected(0); setVisible(true); }
+      else if (data.type === 'hide') setVisible(false);
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
@@ -76,10 +97,8 @@ function App() {
   useEffect(() => {
     if (!visible) return;
     const onKey = (e) => {
-      if (e.key === 'ArrowDown' || e.key === 's')
-        setSelected(i => (i + 1) % Math.max(1, spawns.length));
-      else if (e.key === 'ArrowUp' || e.key === 'w')
-        setSelected(i => (i - 1 + Math.max(1, spawns.length)) % Math.max(1, spawns.length));
+      if (e.key === 'ArrowDown' || e.key === 's') setSelected(i => (i + 1) % Math.max(1, spawns.length));
+      else if (e.key === 'ArrowUp' || e.key === 'w') setSelected(i => (i - 1 + Math.max(1, spawns.length)) % Math.max(1, spawns.length));
       else if (e.key === 'Enter') doStart();
     };
     window.addEventListener('keydown', onKey);
@@ -96,10 +115,7 @@ function App() {
   useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
 
   const doStart = () => {
-    fetch(`https://${GetParentResourceName()}/startSpawn`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ index: selected + 1 }),
-    }).catch(() => {});
+    fetch(`https://${GetParentResourceName()}/startSpawn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index: selected + 1 }) }).catch(() => {});
     setVisible(false);
   };
 
@@ -110,21 +126,17 @@ function App() {
   return (
     <Fragment>
       <div className="player-card">
-        <div style={{ background: 'var(--spz-surface-1)', border: '1px solid var(--spz-line)', borderRadius: 'var(--spz-radius-4)', boxShadow: 'var(--spz-shadow-3)', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--spz-surface-1)', border: '1px solid var(--spz-line)', borderRadius: 8, boxShadow: 'var(--spz-shadow-3)', overflow: 'hidden' }}>
           <div style={{ background: 'var(--spz-surface-2)', borderBottom: '1px solid var(--spz-line)', padding: '6px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span className="spz-eyebrow" style={{ color: 'var(--spz-orange)' }}>{player.stateText || 'IDLE'}</span>
             <Badge variant="orange">{licenseClass} CLASS</Badge>
           </div>
           <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div className="avatar-ring">
-              <img src={player.avatar || 'https://i.imgur.com/8NzA8m8.png'} alt="" />
-            </div>
+            <div className="avatar-ring"><img src={player.avatar || 'https://i.imgur.com/8NzA8m8.png'} alt="" /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                <span style={{ fontFamily: 'var(--spz-font-display)', fontWeight: 700, fontSize: 15, color: 'var(--spz-fg-1)', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-                  {player.name || 'Racer'}
-                </span>
-                {player.crew && <Badge variant="orange" style={{ flexShrink: 0 }}>{player.crew}</Badge>}
+                <span style={{ fontFamily: 'var(--spz-font-display)', fontWeight: 700, fontSize: 15, color: 'var(--spz-fg-1)', letterSpacing: '0.02em', textTransform: 'uppercase' }}>{player.name || 'Racer'}</span>
+                {player.crew && <Badge variant="orange">{player.crew}</Badge>}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--spz-fg-3)' }}>
                 <Icon name="clock" size={11} />
@@ -136,7 +148,7 @@ function App() {
       </div>
 
       <div className="location-panel">
-        <div style={{ background: 'var(--spz-surface-1)', border: '1px solid var(--spz-line)', borderRadius: 'var(--spz-radius-4)', boxShadow: 'var(--spz-shadow-3)', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--spz-surface-1)', border: '1px solid var(--spz-line)', borderRadius: 8, boxShadow: 'var(--spz-shadow-3)', overflow: 'hidden' }}>
           <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid var(--spz-line)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <Icon name="map-pin" size={14} style={{ color: 'var(--spz-orange)' }} />
             <span style={{ fontFamily: 'var(--spz-font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--spz-fg-2)' }}>Select Deployment Zone</span>
@@ -163,9 +175,7 @@ function App() {
       <div className="start-wrap">
         <div className="start-btn" onClick={doStart} style={{ height: 44 }}>
           <div className="start-btn-text">Start</div>
-          <div className="start-btn-icon">
-            <Icon name="play" size={16} />
-          </div>
+          <div class="start-btn-icon"><Icon name="play" size={16} /></div>
         </div>
       </div>
     </Fragment>

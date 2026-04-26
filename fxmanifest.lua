@@ -23,14 +23,8 @@ server_scripts {
 
 files {
     'ui/index.html',
-    'ui/style.css',
-    'ui/script.js',
+    'ui/fonts/*.ttf',
     'ui/public/logo.png',
-    'ui/public/fonts/*.ttf',
-    -- Shared UI
-    '../spz-ui/theme.css',
-    '../spz-ui/components/*.jsx',
-    '../spz-ui/components/styles/*.css'
 }
 
 dependencies {

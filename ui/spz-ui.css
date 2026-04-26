@@ -1,8 +1,4 @@
-/* SPZ UI — compiled single-file stylesheet. No @import chains. */
-
-/* ── Fonts ── */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap");
-@font-face { font-family: 'Panchang'; src: url('https://cfx-nui-spz-ui/fonts/Panchang-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: normal; }
+/* SPZ UI — compiled single-file stylesheet. Fonts loaded via <link> in HTML head. */
 
 /* ── Tokens ── */
 :root {
