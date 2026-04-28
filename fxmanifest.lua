@@ -3,10 +3,10 @@ game 'gta5'
 
 name 'spz-spawn'
 description 'SPiceZ-Core — Standalone Spawning Manager'
-version '1.0.0'
+version '1.1.6'
 author 'SPiceZ-Core'
 
-ui_page 'ui/index.html'
+ui_page 'ui/dist/index.html'
 
 shared_scripts {
     '@spz-core/config.lua',
@@ -22,9 +22,7 @@ server_scripts {
 }
 
 files {
-    'ui/index.html',
-    'ui/fonts/*.ttf',
-    'ui/public/logo.png',
+    'ui/dist/**/*',
 }
 
 dependencies {
