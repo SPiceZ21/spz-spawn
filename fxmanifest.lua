@@ -1,8 +1,8 @@
-fx_version 'cerulean'
+﻿fx_version 'cerulean'
 game 'gta5'
 
 name 'spz-spawn'
-description 'SPiceZ-Core — Standalone Spawning Manager'
+description 'SPiceZ-Core â€” Standalone Spawning Manager'
 version '1.1.6'
 author 'SPiceZ-Core'
 
@@ -31,3 +31,4 @@ dependencies {
     'spz-core',
     'spz-identity'
 }
+
