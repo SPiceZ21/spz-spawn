@@ -127,12 +127,12 @@ RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
     
     CreateCinematicCamera()
     
-    -- Get Nametag info from statebags
-    local state = PlayerId() and Player(PlayerId()).state or {}
-    playerData.avatar = state['spz:avatar'] or "https://i.imgur.com/8NzA8m8.png"
-    playerData.crew = state['spz:crew'] or ""
-    playerData.licenseClass = state['spz:licenseClass'] or "D"
-    playerData.stateText = state['spz:state'] or "IDLE"
+    -- Get info from statebags
+    local state = Player(PlayerId()).state
+    playerData.avatar       = state.avatarUrl or "https://i.imgur.com/8NzA8m8.png"
+    playerData.crew         = state.crewTag or ""
+    playerData.licenseClass = state.rank or "C-5"
+    playerData.stateText    = state.state or "IDLE"
 
     -- Show NUI
     print("^2[spz-spawn] DEBUG: Opening NUI menu^7")
