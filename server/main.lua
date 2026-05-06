@@ -14,7 +14,7 @@ local function ShowPlayMenu(source, profile)
     })
     
     -- Ensure state is MENU when in the play menu
-    exports["spz-core"]:SetPlayerState(source, "MENU")
+    Player(source).state:set("state", "MENU", true)
 end
 
 --- Execute the physical spawn on the client.
@@ -32,7 +32,7 @@ local function SpawnPlayer(source, profile, spawnIndex)
     TriggerClientEvent("SPZ:spawnPlayerTarget", source, spawnData)
     
     -- Set state to FREEROAM after spawning
-    exports["spz-core"]:SetPlayerState(source, "FREEROAM")
+    Player(source).state:set("state", "FREEROAM", true)
 end
 
 -- ── Event Bridging ────────────────────────────────────────────────────────
@@ -46,14 +46,14 @@ end)
 --- New players: Triggered by character creation after profile is initialized.
 AddEventHandler("SPZ:characterReady", function(source)
     print("^2[spz-spawn] DEBUG: Received characterReady for source " .. tostring(source) .. "^7")
-    local profile = exports["spz-identity"]:GetProfile(source)
+    local profile = Player(source).state.profile
     ShowPlayMenu(source, profile)
 end)
 
 --- Explicit request from client when they finish loading
 RegisterNetEvent("SPZ:requestPlayMenu", function()
     local src = source
-    local profile = exports["spz-identity"]:GetProfile(src)
+    local profile = Player(src).state.profile
     if profile then
         print("^2[spz-spawn] DEBUG: Servicing play menu request for " .. tostring(src) .. "^7")
         ShowPlayMenu(src, profile)
@@ -65,7 +65,7 @@ end)
 --- Player clicked START in the spawn menu.
 RegisterNetEvent("SPZ:requestSpawn", function(spawnIndex)
     local src  = source
-    local profile = exports["spz-identity"]:GetProfile(src)
+    local profile = Player(src).state.profile
     if not profile then return end
     SpawnPlayer(src, profile, spawnIndex)
 end)
@@ -73,7 +73,7 @@ end)
 --- Generic respawn request.
 RegisterNetEvent("SPZ:requestRespawn", function()
     local src  = source
-    local profile = exports["spz-identity"]:GetProfile(src)
+    local profile = Player(src).state.profile
     if not profile then return end
     SpawnPlayer(src, profile)
 end)

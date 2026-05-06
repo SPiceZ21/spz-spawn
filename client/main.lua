@@ -98,8 +98,7 @@ RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
     ClearPedBloodDamage(ped)
     RemoveAllPedWeapons(ped, true)
 
-    -- State synchronization
-    exports["spz-identity"]:SetPlayerState("FREEROAM")
+    -- State synchronization (now handled by server statebags)
     isSpawned = true
 
     -- Trigger external systems (appearance, etc.)
