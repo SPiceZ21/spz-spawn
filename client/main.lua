@@ -4,6 +4,26 @@ local isSpawned = false
 local isMenuOpen = false
 local cam = nil
 
+--- Handle new players (first-time setup)
+local function HandleFirstTimeSetup()
+    if LocalPlayer.state.firstTime and not isSpawned and not isMenuOpen then
+        print("^2[spz-spawn] New player detected. Opening character creation...^7")
+        
+        -- Shutdown loading screen so UI is visible
+        ShutdownLoadingScreen()
+        ShutdownLoadingScreenNui()
+        DoScreenFadeIn(500)
+
+        -- Trigger the character creation UI
+        TriggerEvent("SPZ:openCharacterCreation")
+    end
+end
+
+-- Listen for the firstTime state bag to handle new players
+AddStateBagChangeHandler("firstTime", ("player:%s"):format(GetPlayerServerId(PlayerId())), function(bagName, key, value)
+    if value then HandleFirstTimeSetup() end
+end)
+
 --- Disable default spawnmanager aggressively.
 local function DisableSpawnManager()
     pcall(function()
@@ -34,10 +54,15 @@ CreateThread(function()
     -- Wait for the game to settle and loading screen to fade (usually takes a few seconds)
     Wait(2000)
     
+    -- Check immediately if we are a new player
+    HandleFirstTimeSetup()
+    
     -- Keep requesting until we either spawn or the menu opens
     while not isSpawned and not isMenuOpen do
-        print("^2[spz-spawn] Requesting play menu from server...^7")
-        TriggerServerEvent("SPZ:requestPlayMenu")
+        if not LocalPlayer.state.firstTime then
+            print("^2[spz-spawn] Requesting play menu from server...^7")
+            TriggerServerEvent("SPZ:requestPlayMenu")
+        end
         Wait(5000) -- Retry every 5 seconds if still not spawned/menu open
     end
 end)
