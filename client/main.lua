@@ -1,6 +1,7 @@
 -- client/main.lua
 
 local isSpawned = false
+local isMenuOpen = false
 local cam = nil
 
 --- Disable default spawnmanager aggressively.
@@ -31,9 +32,14 @@ AddEventHandler("onClientMapStart", DisableSpawnManager)
 
 CreateThread(function()
     -- Wait for the game to settle and loading screen to fade (usually takes a few seconds)
-    Wait(2500)
-    print("^2[spz-spawn] Client ready: requesting play menu from server.^7")
-    TriggerServerEvent("SPZ:requestPlayMenu")
+    Wait(2000)
+    
+    -- Keep requesting until we either spawn or the menu opens
+    while not isSpawned and not isMenuOpen do
+        print("^2[spz-spawn] Requesting play menu from server...^7")
+        TriggerServerEvent("SPZ:requestPlayMenu")
+        Wait(5000) -- Retry every 5 seconds if still not spawned/menu open
+    end
 end)
 
 --- Cinematic Camera System
@@ -74,6 +80,7 @@ RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
     -- Cleanup UI & Camera
     SendNUIMessage({ type = 'hide' })
     SetNuiFocus(false, false)
+    isMenuOpen = false
     DestroyCinematicCamera()
     FreezeEntityPosition(PlayerPedId(), false)
     DisplayHud(true)
@@ -109,14 +116,17 @@ end)
 
 --- Shutdown loading screen after identity is ready and play menu is shown.
 RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
+    if isSpawned or isMenuOpen then return end
+    
     print("^2[spz-spawn] DEBUG: Client received showPlayMenu^7")
+    isMenuOpen = true
     
     -- Force kill all loading screens
     ShutdownLoadingScreen()
     ShutdownLoadingScreenNui()
     
     -- Ensure screen is clear
-    DoScreenFadeIn(0)
+    DoScreenFadeIn(500)
     
     -- Activate cinematic mode
     local ped = PlayerPedId()

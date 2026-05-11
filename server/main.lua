@@ -46,17 +46,19 @@ end)
 --- New players: Triggered by character creation after profile is initialized.
 AddEventHandler("SPZ:characterReady", function(source)
     print("^2[spz-spawn] DEBUG: Received characterReady for source " .. tostring(source) .. "^7")
-    local profile = Player(source).state.profile
+    local profile = exports['spz-identity']:GetProfile(source)
     ShowPlayMenu(source, profile)
 end)
 
 --- Explicit request from client when they finish loading
 RegisterNetEvent("SPZ:requestPlayMenu", function()
     local src = source
-    local profile = Player(src).state.profile
+    local profile = exports['spz-identity']:GetProfile(src)
     if profile then
         print("^2[spz-spawn] DEBUG: Servicing play menu request for " .. tostring(src) .. "^7")
         ShowPlayMenu(src, profile)
+    else
+        print("^1[spz-spawn] ERROR: Play menu request failed for " .. tostring(src) .. " (No profile found)^7")
     end
 end)
 
@@ -65,15 +67,18 @@ end)
 --- Player clicked START in the spawn menu.
 RegisterNetEvent("SPZ:requestSpawn", function(spawnIndex)
     local src  = source
-    local profile = Player(src).state.profile
-    if not profile then return end
+    local profile = exports['spz-identity']:GetProfile(src)
+    if not profile then 
+        print("^1[spz-spawn] ERROR: Spawn request failed for " .. tostring(src) .. " (No profile found)^7")
+        return 
+    end
     SpawnPlayer(src, profile, spawnIndex)
 end)
 
 --- Generic respawn request.
 RegisterNetEvent("SPZ:requestRespawn", function()
     local src  = source
-    local profile = Player(src).state.profile
+    local profile = exports['spz-identity']:GetProfile(src)
     if not profile then return end
     SpawnPlayer(src, profile)
 end)
