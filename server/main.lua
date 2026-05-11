@@ -5,6 +5,13 @@
 --- @param profile table
 local function ShowPlayMenu(source, profile)
     if not profile then return end
+
+    -- Do not show the play menu if the player is still in the first-time setup (character creation)
+    if profile.first_time == 1 then
+        print("^3[spz-spawn] DEBUG: Skipping play menu for source " .. tostring(source) .. " (First-time player)^7")
+        return 
+    end
+
     TriggerClientEvent("SPZ:showPlayMenu", source, {
         name   = profile.username or GetPlayerName(source),
         rank   = profile.rank_name or "Rookie",
@@ -55,6 +62,7 @@ RegisterNetEvent("SPZ:requestPlayMenu", function()
     local src = source
     local profile = exports['spz-identity']:GetProfile(src)
     if profile then
+        if profile.first_time == 1 then return end
         print("^2[spz-spawn] DEBUG: Servicing play menu request for " .. tostring(src) .. "^7")
         ShowPlayMenu(src, profile)
     else
