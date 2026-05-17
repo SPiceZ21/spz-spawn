@@ -1,6 +1,7 @@
 {
   "name": "spz-spawn-ui",
   "private": true,
+  "type": "module",
   "version": "1.0.0",
   "scripts": {
     "dev": "vite",
@@ -9,7 +10,8 @@
   },
   "dependencies": {
     "lucide-preact": "^1.11.0",
-    "preact": "^10.29.1"
+    "preact": "^10.29.1",
+    "zimmerframe": "^1.1.2"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.5",
