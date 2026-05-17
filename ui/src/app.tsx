@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'preact/hooks'
-import { Clock, MapPin, Play, ChevronUp, ChevronDown } from 'lucide-preact'
+import { Clock, MapPin, Play, ChevronLeft, ChevronRight } from 'lucide-preact'
 
 interface SpawnPoint {
   label: string
@@ -46,8 +46,8 @@ export function App() {
     if (!visible) return
     const onKey = (e: KeyboardEvent) => {
       const len = Math.max(1, spawns.length)
-      if (e.key === 'ArrowDown' || e.key === 's') setSelected(i => (i + 1) % len)
-      else if (e.key === 'ArrowUp' || e.key === 'w') setSelected(i => (i - 1 + len) % len)
+      if (e.key === 'ArrowRight' || e.key === 'd') setSelected(i => (i + 1) % len)
+      else if (e.key === 'ArrowLeft' || e.key === 'a') setSelected(i => (i - 1 + len) % len)
       else if (e.key === 'Enter') doStart()
     }
     window.addEventListener('keydown', onKey)
@@ -73,56 +73,65 @@ export function App() {
 
   return (
     <>
-      <div class="player-card">
-        <div class="spz-card">
-          <div class="card-topbar">
-            <span class="spz-eyebrow" style={{ color: 'var(--color-primary)' }}>{player.stateText || 'IDLE'}</span>
-            <span class="spz-badge-custom">{licenseClass} Class</span>
+      <div class="player-card modular-panel">
+        <div class="spz-card modular-card title-card" style={{ justifyContent: 'space-between' }}>
+          <span class="spz-eyebrow" style={{ color: 'var(--color-primary)' }}>{player.stateText || 'IDLE'}</span>
+          <span class="spz-badge-custom">{licenseClass} Class</span>
+        </div>
+        
+        <div class="spz-card modular-card" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div class="avatar-ring" style={{ width: '40px', height: '40px', borderWidth: '1px' }}>
+            <img src={player.avatar || 'https://i.imgur.com/8NzA8m8.png'} alt="" />
           </div>
-          <div class="card-body" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div class="avatar-ring">
-              <img src={player.avatar || 'https://i.imgur.com/8NzA8m8.png'} alt="" />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px', flexWrap: 'wrap' }}>
+              <span class="player-name" style={{ fontSize: '13px' }}>{player.name || 'Racer'}</span>
+              {player.crew && <span class="spz-badge-custom">{player.crew}</span>}
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                <span class="player-name">{player.name || 'Racer'}</span>
-                {player.crew && <span class="spz-badge-custom">{player.crew}</span>}
-              </div>
-              <div class="player-meta">
-                <Clock size={11} color="var(--gray-500)" />
-                <span class="spz-mono" style={{ fontSize: 11 }}>{formatPlaytime(player.playtime || 0)}</span>
-              </div>
+            <div class="player-meta">
+              <Clock size={10} color="var(--gray-500)" />
+              <span class="spz-mono" style={{ fontSize: '10px' }}>{formatPlaytime(player.playtime || 0)}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="location-panel">
-        <div class="spz-card">
-          <div class="panel-title">
-            <MapPin size={14} color="var(--color-primary)" />
-            <span class="panel-title-text">Select Deployment Zone</span>
+      <div class="location-panel modular-panel">
+        <div class="spz-card modular-card title-card">
+          <MapPin size={14} color="var(--color-primary)" />
+          <span class="panel-title-text">Deployment Zone</span>
+        </div>
+        
+        <div class="spz-card modular-card carousel-card">
+          <div class="loc-carousel">
+            <div class="loc-nav" onClick={() => setSelected(i => (i - 1 + spawns.length) % spawns.length)}>
+              <ChevronLeft size={14} color="var(--color-primary)" />
+            </div>
+            
+            <div class="loc-content">
+              <span class="loc-num">{String(selected + 1).padStart(2, '0')}</span>
+              <span class="loc-name">{spawns[selected]?.label || 'Unknown'}</span>
+            </div>
+            
+            <div class="loc-nav" onClick={() => setSelected(i => (i + 1) % spawns.length)}>
+              <ChevronRight size={14} color="var(--color-primary)" />
+            </div>
           </div>
-          <div class="loc-list" ref={listRef}>
-            {spawns.map((s, i) => (
-              <div
-                key={i}
-                class={`loc-item${i === selected ? ' active' : ''}`}
-                onClick={() => setSelected(i)}
-              >
-                <span class="loc-num">{String(i + 1).padStart(2, '0')}</span>
-                <span class="loc-name">{s.label}</span>
-              </div>
+          
+          <div class="loc-dots">
+            {spawns.map((_, i) => (
+              <div class={`loc-dot ${i === selected ? 'active' : ''}`} key={i} />
             ))}
           </div>
-          <div class="panel-hint">
-            <ChevronUp size={12} color="var(--gray-500)" />
-            <ChevronDown size={12} color="var(--gray-500)" />
-            <span class="hint-text">navigate</span>
-            <span style={{ color: 'var(--gray-700)', fontSize: 11 }}>·</span>
-            <span class="spz-kbd">↵</span>
-            <span class="hint-text">confirm</span>
-          </div>
+        </div>
+
+        <div class="spz-card modular-card hint-card">
+          <ChevronLeft size={12} color="var(--gray-500)" />
+          <ChevronRight size={12} color="var(--gray-500)" />
+          <span class="hint-text">navigate</span>
+          <span style={{ color: 'var(--gray-700)', fontSize: 11 }}>·</span>
+          <span class="spz-kbd">↵</span>
+          <span class="hint-text">confirm</span>
         </div>
       </div>
 
