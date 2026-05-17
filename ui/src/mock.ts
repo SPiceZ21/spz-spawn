@@ -7,7 +7,7 @@ export const initMockEnv = () => {
       window.dispatchEvent(
         new MessageEvent('message', {
           data: {
-            type: 'show',
+            type: 'showCharacterCreation',
             playerData: {
               name: 'SPiceZ',
               avatar: 'https://i.imgur.com/8NzA8m8.png',
@@ -30,8 +30,8 @@ export const initMockEnv = () => {
     // Mock fetch for Start Spawn button
     const originalFetch = window.fetch;
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (typeof input === 'string' && input.includes('/startSpawn')) {
-        console.log('[Mock Environment] Triggered startSpawn with body:', init?.body);
+      if (typeof input === 'string' && (input.includes('/startSpawn') || input.includes('/submitCharacterCreation'))) {
+        console.log('[Mock Environment] Triggered NUI Callback with body:', init?.body);
         return new Response(JSON.stringify({ status: 'ok' }));
       }
       return originalFetch(input, init);

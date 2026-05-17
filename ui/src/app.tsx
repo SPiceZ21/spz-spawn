@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'preact/hooks'
-import { Clock, MapPin, Play, ChevronLeft, ChevronRight } from 'lucide-preact'
+import { Clock, MapPin, Play, ChevronLeft, ChevronRight, User, Sparkles, Check, AlertCircle, Fingerprint } from 'lucide-preact'
 
 interface SpawnPoint {
   label: string
@@ -21,7 +21,7 @@ function formatPlaytime(seconds: number): string {
 }
 
 export function App() {
-  const [visible, setVisible] = useState(false)
+  const [view, setView] = useState<'none' | 'spawn' | 'creation'>('none')
   const [player, setPlayer] = useState<PlayerData>({})
   const [spawns, setSpawns] = useState<SpawnPoint[]>([])
   const [selected, setSelected] = useState(0)
@@ -33,9 +33,11 @@ export function App() {
         setPlayer(e.data.playerData || {})
         setSpawns(e.data.spawns || [])
         setSelected(0)
-        setVisible(true)
+        setView('spawn')
+      } else if (e.data.type === 'showCharacterCreation') {
+        setView('creation')
       } else if (e.data.type === 'hide') {
-        setVisible(false)
+        setView('none')
       }
     }
     window.addEventListener('message', handler)
@@ -43,7 +45,7 @@ export function App() {
   }, [])
 
   useEffect(() => {
-    if (!visible) return
+    if (view !== 'spawn') return
     const onKey = (e: KeyboardEvent) => {
       const len = Math.max(1, spawns.length)
       if (e.key === 'ArrowRight' || e.key === 'd') setSelected(i => (i + 1) % len)
@@ -52,7 +54,7 @@ export function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [visible, spawns, selected])
+  }, [view, spawns, selected])
 
   useEffect(() => {
     listRef.current?.querySelector('.active')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
@@ -64,10 +66,14 @@ export function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ index: selected + 1 }),
     }).catch(() => {})
-    setVisible(false)
+    setView('none')
   }
 
-  if (!visible) return null
+  if (view === 'none') return null
+
+  if (view === 'creation') {
+    return <CharacterCreation />
+  }
 
   const licenseClass = player.licenseClass || 'D'
 
@@ -143,4 +149,131 @@ export function App() {
       </div>
     </>
   )
+}
+
+function CharacterCreation() {
+  const [name, setName] = useState('');
+  const [gender, setGender] = useState(0);
+
+  const isValidName = /^[a-zA-Z0-9_]{3,16}$/.test(name);
+
+  const submitCreation = () => {
+    if (!isValidName) return;
+    fetch(`https://${GetParentResourceName()}/submitCharacterCreation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, gender }),
+    }).catch(() => {})
+  }
+
+  return (
+    <div class="spz-overlay custom-overlay-blur">
+      <div class="identity-panel identity-panel-anim">
+        <div class="spz-card modular-card title-card" style={{ justifyContent: 'center', gap: '8px' }}>
+          <Fingerprint size={16} color="var(--color-primary)" />
+          <span class="panel-title-text" style={{ color: 'var(--color-primary)', fontSize: '12px' }}>Initialize Racer Profile</span>
+        </div>
+        
+        <div class="spz-card modular-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Racer Alias</label>
+            <div class="input-wrapper">
+              <span class="input-icon-left">
+                <User size={16} color={name.length === 0 ? 'var(--gray-600)' : isValidName ? 'var(--color-primary)' : '#ef4444'} />
+              </span>
+              <input 
+                type="text" 
+                value={name}
+                onInput={(e) => setName((e.target as HTMLInputElement).value)}
+                placeholder="Choose alias..."
+                class={`alias-input ${name.length > 0 && !isValidName ? 'invalid' : ''}`}
+                maxLength={16}
+              />
+              {name.length > 0 && (
+                <span class="input-validation-right">
+                  {isValidName ? (
+                    <Check size={16} color="var(--color-primary)" />
+                  ) : (
+                    <AlertCircle size={16} color="#ef4444" />
+                  )}
+                </span>
+              )}
+            </div>
+            <div class="identity-help-text">
+              {name.length === 0 ? (
+                <>
+                  <Sparkles size={10} color="var(--gray-600)" />
+                  <span>3-16 chars (letters, numbers, underscores)</span>
+                </>
+              ) : !isValidName ? (
+                <span style={{ color: '#ef4444' }}>Alphanumeric & underscores only</span>
+              ) : (
+                <span style={{ color: 'var(--color-primary)' }}>Racer alias is valid</span>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Model Base</label>
+            <div class="gender-grid">
+              <div 
+                class={`gender-card ${gender === 0 ? 'active' : ''}`}
+                onClick={() => setGender(0)}
+              >
+                <div class="gender-card-badge">
+                  <Check size={10} />
+                </div>
+                <div class="gender-card-icon">
+                  <Sparkles size={20} />
+                </div>
+                <span class="gender-card-label">Male Base</span>
+              </div>
+
+              <div 
+                class={`gender-card ${gender === 1 ? 'active' : ''}`}
+                onClick={() => setGender(1)}
+              >
+                <div class="gender-card-badge">
+                  <Check size={10} />
+                </div>
+                <div class="gender-card-icon">
+                  <Sparkles size={20} />
+                </div>
+                <span class="gender-card-label">Female Base</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div 
+          class="start-btn" 
+          onClick={isValidName ? submitCreation : undefined} 
+          style={{ 
+            width: '100%', 
+            display: 'flex', 
+            height: '44px',
+            opacity: isValidName ? 1 : 0.5,
+            cursor: isValidName ? 'pointer' : 'not-allowed',
+            boxShadow: isValidName ? undefined : 'none',
+            borderColor: isValidName ? undefined : 'var(--gray-800)'
+          }}
+        >
+          <div 
+            class="start-btn-text" 
+            style={{ 
+              flex: 1, 
+              justifyContent: 'center', 
+              background: isValidName ? undefined : 'var(--gray-800)', 
+              color: isValidName ? undefined : 'var(--gray-500)' 
+            }}
+          >
+            Confirm Identity
+          </div>
+          <div class="start-btn-icon" style={{ background: isValidName ? undefined : 'var(--gray-900)', borderColor: isValidName ? undefined : 'var(--gray-800)', color: isValidName ? undefined : 'var(--gray-600)' }}>
+            <Play size={16} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
