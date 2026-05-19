@@ -25,6 +25,7 @@ export function App() {
   const [player, setPlayer] = useState<PlayerData>({})
   const [spawns, setSpawns] = useState<SpawnPoint[]>([])
   const [selected, setSelected] = useState(0)
+  const [creationError, setCreationError] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -35,7 +36,10 @@ export function App() {
         setSelected(0)
         setView('spawn')
       } else if (e.data.type === 'showCharacterCreation') {
+        setCreationError(null)
         setView('creation')
+      } else if (e.data.type === 'characterCreationError') {
+        setCreationError(e.data.message || 'An error occurred.')
       } else if (e.data.type === 'hide') {
         setView('none')
       }
@@ -72,7 +76,7 @@ export function App() {
   if (view === 'none') return null
 
   if (view === 'creation') {
-    return <CharacterCreation />
+    return <CharacterCreation serverError={creationError} onClearError={() => setCreationError(null)} />
   }
 
   const licenseClass = player.licenseClass || 'D'
@@ -151,19 +155,26 @@ export function App() {
   )
 }
 
-function CharacterCreation() {
+function CharacterCreation({ serverError, onClearError }: { serverError: string | null, onClearError: () => void }) {
   const [name, setName] = useState('');
   const [gender, setGender] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (serverError) setSubmitting(false);
+  }, [serverError]);
 
   const isValidName = /^[a-zA-Z0-9_]{3,16}$/.test(name);
 
   const submitCreation = () => {
-    if (!isValidName) return;
+    if (!isValidName || submitting) return;
+    setSubmitting(true);
+    onClearError();
     fetch(`https://${GetParentResourceName()}/submitCharacterCreation`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, gender }),
-    }).catch(() => {})
+    }).catch(() => { setSubmitting(false) })
   }
 
   return (
@@ -173,6 +184,13 @@ function CharacterCreation() {
           <Fingerprint size={16} color="var(--color-primary)" />
           <span class="panel-title-text" style={{ color: 'var(--color-primary)', fontSize: '12px' }}>Initialize Racer Profile</span>
         </div>
+
+        {serverError && (
+          <div class="spz-card modular-card" style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertCircle size={14} color="#ef4444" />
+            <span style={{ fontSize: '11px', color: '#ef4444', flex: 1 }}>{serverError}</span>
+          </div>
+        )}
         
         <div class="spz-card modular-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
           <div>
@@ -245,31 +263,31 @@ function CharacterCreation() {
           </div>
         </div>
 
-        <div 
-          class="start-btn" 
-          onClick={isValidName ? submitCreation : undefined} 
-          style={{ 
-            width: '100%', 
-            display: 'flex', 
+        <div
+          class="start-btn"
+          onClick={isValidName && !submitting ? submitCreation : undefined}
+          style={{
+            width: '100%',
+            display: 'flex',
             height: '44px',
-            opacity: isValidName ? 1 : 0.5,
-            cursor: isValidName ? 'pointer' : 'not-allowed',
-            boxShadow: isValidName ? undefined : 'none',
-            borderColor: isValidName ? undefined : 'var(--gray-800)'
+            opacity: isValidName && !submitting ? 1 : 0.5,
+            cursor: isValidName && !submitting ? 'pointer' : 'not-allowed',
+            boxShadow: isValidName && !submitting ? undefined : 'none',
+            borderColor: isValidName && !submitting ? undefined : 'var(--gray-800)'
           }}
         >
-          <div 
-            class="start-btn-text" 
-            style={{ 
-              flex: 1, 
-              justifyContent: 'center', 
-              background: isValidName ? undefined : 'var(--gray-800)', 
-              color: isValidName ? undefined : 'var(--gray-500)' 
+          <div
+            class="start-btn-text"
+            style={{
+              flex: 1,
+              justifyContent: 'center',
+              background: isValidName && !submitting ? undefined : 'var(--gray-800)',
+              color: isValidName && !submitting ? undefined : 'var(--gray-500)'
             }}
           >
-            Confirm Identity
+            {submitting ? 'Initializing...' : 'Confirm Identity'}
           </div>
-          <div class="start-btn-icon" style={{ background: isValidName ? undefined : 'var(--gray-900)', borderColor: isValidName ? undefined : 'var(--gray-800)', color: isValidName ? undefined : 'var(--gray-600)' }}>
+          <div class="start-btn-icon" style={{ background: isValidName && !submitting ? undefined : 'var(--gray-900)', borderColor: isValidName && !submitting ? undefined : 'var(--gray-800)', color: isValidName && !submitting ? undefined : 'var(--gray-600)' }}>
             <Play size={16} />
           </div>
         </div>

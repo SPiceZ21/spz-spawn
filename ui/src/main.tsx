@@ -1,5 +1,5 @@
 import { render } from 'preact'
-import { App } from './app'
+import { App } from './App'
 import './styles/nui-base.css'
 import './styles/app.css'
 import { initMockEnv } from './mock'

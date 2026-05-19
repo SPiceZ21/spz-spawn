@@ -1,30 +1,54 @@
 -- client/main.lua
 
-local isSpawned = false
+local isSpawned  = false
 local isMenuOpen = false
-local cam = nil
+local cam        = nil
 
---- Handle new players (first-time setup)
+-- ── Loading screen kill ───────────────────────────────────────────────────────
+
+local loadingKilled = false
+local function KillLoadingScreen()
+    if loadingKilled then return end
+    loadingKilled = true
+    ShutdownLoadingScreen()
+    ShutdownLoadingScreenNui()
+end
+
+-- Hard failsafe: if nothing calls KillLoadingScreen in 20 s, do it anyway.
+CreateThread(function()
+    Wait(20000)
+    if not loadingKilled then
+        print("^3[spz-spawn] WARNING: Loading screen timeout — force-killing after 20s^7")
+        KillLoadingScreen()
+        -- If identity still hasn't responded, keep polling for play menu
+    end
+end)
+
+-- ── New-player flow ────────────────────────────────────────────────────────────
+
 local function HandleFirstTimeSetup()
     if LocalPlayer.state.firstTime and not isSpawned and not isMenuOpen then
-        print("^2[spz-spawn] New player detected. Opening character creation...^7")
-        
-        -- Shutdown loading screen so UI is visible
-        ShutdownLoadingScreen()
-        ShutdownLoadingScreenNui()
+        print("^2[spz-spawn] New player — opening character creation^7")
+        KillLoadingScreen()
         DoScreenFadeIn(500)
-
-        -- Trigger the character creation UI
-        TriggerEvent("SPZ:openCharacterCreation")
+        isMenuOpen = true
+        FreezeEntityPosition(PlayerPedId(), true)
+        DisplayHud(false)
+        DisplayRadar(false)
+        SetNuiFocus(true, true)
+        SendNUIMessage({ type = "showCharacterCreation" })
     end
 end
 
--- Listen for the firstTime state bag to handle new players
-AddStateBagChangeHandler("firstTime", ("player:%s"):format(GetPlayerServerId(PlayerId())), function(bagName, key, value)
-    if value then HandleFirstTimeSetup() end
-end)
+AddStateBagChangeHandler("firstTime",
+    ("player:%s"):format(GetPlayerServerId(PlayerId())),
+    function(_, _, value)
+        if value then HandleFirstTimeSetup() end
+    end
+)
 
---- Disable default spawnmanager aggressively.
+-- ── Spawnmanager suppression ──────────────────────────────────────────────────
+
 local function DisableSpawnManager()
     pcall(function()
         exports.spawnmanager:setAutoSpawn(false)
@@ -32,59 +56,49 @@ local function DisableSpawnManager()
     end)
 end
 
--- Run immediately and on start
 DisableSpawnManager()
-
-AddEventHandler('onClientResourceStart', function(resourceName)
-    if GetCurrentResourceName() ~= resourceName then return end
-    DisableSpawnManager()
-end)
-
--- Backup loop for 5 seconds
-CreateThread(function()
-    for i = 1, 50 do
-        DisableSpawnManager()
-        Wait(100)
-    end
-end)
-
+AddEventHandler('onClientResourceStart', function(r) if GetCurrentResourceName() == r then DisableSpawnManager() end end)
 AddEventHandler("onClientMapStart", DisableSpawnManager)
+CreateThread(function() for i = 1,50 do DisableSpawnManager() Wait(100) end end)
 
+-- ── Play menu request ─────────────────────────────────────────────────────────
+
+local function RequestPlayMenu()
+    if isSpawned or isMenuOpen then return end
+    if LocalPlayer.state.firstTime then return end
+    print("^2[spz-spawn] Requesting play menu^7")
+    TriggerServerEvent("SPZ:requestPlayMenu")
+end
+
+-- Triggered by spz-identity when profile is fully loaded & synced
+RegisterNetEvent("SPZ:identityReady", function()
+    print("^2[spz-spawn] Identity ready — requesting play menu^7")
+    Wait(200) -- one frame buffer
+    RequestPlayMenu()
+end)
+
+-- Polling fallback (in case identityReady was missed)
 CreateThread(function()
-    -- Wait for the game to settle and loading screen to fade (usually takes a few seconds)
-    Wait(2000)
-    
-    -- Check immediately if we are a new player
+    Wait(3000) -- shorter initial wait
     HandleFirstTimeSetup()
-    
-    -- Keep requesting until we either spawn or the menu opens
     while not isSpawned and not isMenuOpen do
-        if not LocalPlayer.state.firstTime then
-            print("^2[spz-spawn] Requesting play menu from server...^7")
-            TriggerServerEvent("SPZ:requestPlayMenu")
-        end
-        Wait(5000) -- Retry every 5 seconds if still not spawned/menu open
+        RequestPlayMenu()
+        Wait(3000)
     end
 end)
 
---- Cinematic Camera System
+-- ── Cinematic camera ──────────────────────────────────────────────────────────
+
 local function CreateCinematicCamera()
-    local ped = PlayerPedId()
-    local coords = GetEntityCoords(ped)
-    
-    -- Position camera in front of the player, slightly up
+    local ped      = PlayerPedId()
     local camCoords = GetOffsetFromEntityInWorldCoords(ped, 0.0, 3.0, 1.0)
-    
     cam = CreateCam("DEFAULT_SCRIPTED_CAMERA", true)
     SetCamCoord(cam, camCoords.x, camCoords.y, camCoords.z)
     PointCamAtEntity(cam, ped, 0.0, 0.0, 0.0, true)
+    SetCamFov(cam, 50.0)
     SetCamActive(cam, true)
     RenderScriptCams(true, true, 1000, true, true)
-    
-    -- Optional: DOF or smooth movement could be added here
-    SetCamFov(cam, 50.0)
 end
-
 
 local function DestroyCinematicCamera()
     if cam then
@@ -94,15 +108,15 @@ local function DestroyCinematicCamera()
     end
 end
 
---- Physical spawn logic.
---- @param data table Contains gender and optionally coords/heading.
+-- ── Physical spawn ────────────────────────────────────────────────────────────
+
 RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
+    -- gender: 0 = male (mp_m_freemode_01), 1 = female (mp_f_freemode_01)
     local modelHash = data.gender == 1 and `mp_f_freemode_01` or `mp_m_freemode_01`
 
     DoScreenFadeOut(500)
     Wait(500)
 
-    -- Cleanup UI & Camera
     SendNUIMessage({ type = 'hide' })
     SetNuiFocus(false, false)
     isMenuOpen = false
@@ -111,17 +125,20 @@ RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
     DisplayHud(true)
     DisplayRadar(true)
 
-    -- Model management
+    -- Set model
     RequestModel(modelHash)
-    while not HasModelLoaded(modelHash) do Wait(0) end
+    local timeout = 0
+    while not HasModelLoaded(modelHash) do
+        Wait(0)
+        timeout = timeout + 1
+        if timeout > 300 then break end -- 5s hard timeout
+    end
     SetPlayerModel(PlayerId(), modelHash)
     SetModelAsNoLongerNeeded(modelHash)
 
-    -- Coordinate resolution (default to SafeZone if not provided)
-    local coords  = data.coords or Config.SafeZone.coords
+    -- Teleport / resurrect
+    local coords  = data.coords  or Config.SafeZone.coords
     local heading = data.heading or Config.SafeZone.heading
-
-    -- Physical resurrect/teleport
     NetworkResurrectLocalPlayer(coords.x, coords.y, coords.z, heading, true, true)
 
     local ped = PlayerPedId()
@@ -130,78 +147,83 @@ RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
     ClearPedBloodDamage(ped)
     RemoveAllPedWeapons(ped, true)
 
-    -- State synchronization (now handled by server statebags)
     isSpawned = true
 
-    -- Trigger external systems (appearance, etc.)
+    -- Wait for ped model to fully apply before triggering outfit
+    -- (SetPlayerModel resets appearance; applyOutfit must run after)
+    Wait(300)
     TriggerEvent("SPZ:applyOutfit")
-    
+
     DoScreenFadeIn(1000)
 end)
 
---- Shutdown loading screen after identity is ready and play menu is shown.
+-- ── Show play menu ────────────────────────────────────────────────────────────
+
 RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
     if isSpawned or isMenuOpen then return end
-    
-    print("^2[spz-spawn] DEBUG: Client received showPlayMenu^7")
+
+    print("^2[spz-spawn] Showing play menu^7")
     isMenuOpen = true
-    
-    -- Force kill all loading screens
-    ShutdownLoadingScreen()
-    ShutdownLoadingScreenNui()
-    
-    -- Ensure screen is clear
+
+    KillLoadingScreen()
     DoScreenFadeIn(500)
-    
-    -- Activate cinematic mode
+
     local ped = PlayerPedId()
     FreezeEntityPosition(ped, true)
     SetEntityVisible(ped, true)
     DisplayHud(false)
     DisplayRadar(false)
-    
-    CreateCinematicCamera()
-    
-    -- Get info from statebags
-    local state = Player(PlayerId()).state
-    playerData.avatar       = state.avatarUrl or "https://i.imgur.com/8NzA8m8.png"
-    playerData.crew         = state.crewTag or ""
-    playerData.licenseClass = state.rank or "C-5"
-    playerData.stateText    = state.state or "IDLE"
 
-    -- Show NUI
-    print("^2[spz-spawn] DEBUG: Opening NUI menu^7")
-    SendNUIMessage({
-        type = 'show',
-        playerData = playerData,
-        spawns = Config.Spawns
-    })
+    CreateCinematicCamera()
+
+    -- Enrich with statebag data
+    local state = Player(PlayerId()).state
+    playerData.avatar       = state.avatarUrl    or "https://i.imgur.com/8NzA8m8.png"
+    playerData.crew         = state.crewTag      or ""
+    playerData.licenseClass = state.rank         or "C-5"
+    playerData.stateText    = state.state        or "IDLE"
+
+    SendNUIMessage({ type = 'show', playerData = playerData, spawns = Config.Spawns })
     SetNuiFocus(true, true)
 end)
 
-print("^2[spz-spawn] Client script initialized.^7")
+-- ── NUI callbacks ─────────────────────────────────────────────────────────────
 
---- NUI Callbacks
 RegisterNUICallback('startSpawn', function(data, cb)
-    print("^2[spz-spawn] NUI callback: startSpawn index " .. tostring(data.index) .. "^7")
     TriggerServerEvent("SPZ:requestSpawn", data.index)
     cb('ok')
 end)
 
---- Debug Command
-RegisterCommand("testspawn", function()
-    print("^2[spz-spawn] Manual test: triggering showPlayMenu^7")
-    TriggerEvent("SPZ:showPlayMenu", {
-        name = "Tester",
-        rank = "Developer",
-        tier = 3,
-        gender = 1
-    })
-end, false)
+RegisterNUICallback('submitCharacterCreation', function(data, cb)
+    TriggerServerEvent("SPZ:characterCreated", data.gender, data.name)
+    cb('ok')
+end)
 
---- Generic teleport
+-- ── Character creation response ────────────────────────────────────────────────
+
+RegisterNetEvent("SPZ:characterCreateCompleted", function(success, message)
+    if success then
+        isMenuOpen = false
+        SetNuiFocus(false, false)
+        SendNUIMessage({ type = "hide" })
+        FreezeEntityPosition(PlayerPedId(), false)
+        DisplayHud(true)
+        DisplayRadar(true)
+    else
+        SendNUIMessage({ type = "characterCreationError", message = message or "Unknown error." })
+    end
+end)
+
+-- ── Utilities ─────────────────────────────────────────────────────────────────
+
 RegisterNetEvent("SPZ:teleportTo", function(coords, heading)
     local ped = PlayerPedId()
     SetEntityCoords(ped, coords.x, coords.y, coords.z, false, false, false, true)
     if heading then SetEntityHeading(ped, heading) end
 end)
+
+RegisterCommand("testspawn", function()
+    TriggerEvent("SPZ:showPlayMenu", { name = "Tester", rank = "Developer", tier = 3, gender = 0 })
+end, false)
+
+print("^2[spz-spawn] Client initialized^7")
