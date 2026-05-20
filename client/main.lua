@@ -177,7 +177,7 @@ RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
     CreateCinematicCamera()
 
     -- Enrich with statebag data
-    local state = Player(PlayerId()).state
+    local state = LocalPlayer.state
     playerData.avatar       = state.avatarUrl    or "https://i.imgur.com/8NzA8m8.png"
     playerData.crew         = state.crewTag      or ""
     playerData.licenseClass = state.rank         or "C-5"
