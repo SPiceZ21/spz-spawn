@@ -28,24 +28,28 @@ end)
 
 local function HandleFirstTimeSetup()
     if LocalPlayer.state.firstTime and not isSpawned and not isMenuOpen then
-        print("^2[spz-spawn] New player — opening character creation^7")
-        KillLoadingScreen()
-        DoScreenFadeIn(500)
-        isMenuOpen = true
-        FreezeEntityPosition(PlayerPedId(), true)
-        DisplayHud(false)
-        DisplayRadar(false)
-        SetNuiFocus(true, true)
-        SendNUIMessage({ type = "showCharacterCreation" })
+        TriggerEvent("SPZ:openCharacterCreation")
     end
 end
 
-AddStateBagChangeHandler("firstTime",
-    ("player:%s"):format(GetPlayerServerId(PlayerId())),
-    function(_, _, value)
-        if value then HandleFirstTimeSetup() end
-    end
-)
+RegisterNetEvent("SPZ:openCharacterCreation", function()
+    if isSpawned or isMenuOpen then return end
+    print("^2[spz-spawn] Opening character creation^7")
+    KillLoadingScreen()
+    DoScreenFadeIn(500)
+    isMenuOpen = true
+    FreezeEntityPosition(PlayerPedId(), true)
+    DisplayHud(false)
+    DisplayRadar(false)
+    SetNuiFocus(true, true)
+    SendNUIMessage({ type = "showCharacterCreation" })
+end)
+
+AddStateBagChangeHandler("firstTime", nil, function(bagName, key, value)
+    local targetSource = tonumber(bagName:match("player:(%d+)"))
+    if targetSource ~= GetPlayerServerId(PlayerId()) then return end
+    if value then HandleFirstTimeSetup() end
+end)
 
 -- ── Spawnmanager suppression ──────────────────────────────────────────────────
 
@@ -223,7 +227,15 @@ RegisterNetEvent("SPZ:teleportTo", function(coords, heading)
 end)
 
 RegisterCommand("testspawn", function()
+    isSpawned = false
+    isMenuOpen = false
     TriggerEvent("SPZ:showPlayMenu", { name = "Tester", rank = "Developer", tier = 3, gender = 0 })
+end, false)
+
+RegisterCommand("testcreation", function()
+    isSpawned = false
+    isMenuOpen = false
+    TriggerEvent("SPZ:openCharacterCreation")
 end, false)
 
 print("^2[spz-spawn] Client initialized^7")
