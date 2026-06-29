@@ -27,7 +27,7 @@ files {
 
 dependencies {
     'spawnmanager',
-    'spz-lib',
+    'ox_lib',
     'spz-core',
     'spz-identity'
 }
