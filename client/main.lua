@@ -3,6 +3,10 @@
 local isSpawned  = false
 local isMenuOpen = false
 local cam        = nil
+local isNewCharacter = false
+
+-- forward declarations (defined in the camera section below)
+local CreateCinematicCamera, DestroyCinematicCamera
 
 -- ── Loading screen kill ───────────────────────────────────────────────────────
 
@@ -36,13 +40,32 @@ RegisterNetEvent("SPZ:openCharacterCreation", function()
     if isSpawned or isMenuOpen then return end
     print("^2[spz-spawn] Opening character creation^7")
     KillLoadingScreen()
-    DoScreenFadeIn(500)
-    isMenuOpen = true
-    FreezeEntityPosition(PlayerPedId(), true)
+    isMenuOpen     = true
+    isNewCharacter = true
+
+    -- Place the (invisible) ped at the fixed preview scene so the UI has a
+    -- real backdrop instead of the unstreamed void (black screen).
+    local pv = Config.PreviewLocation or Config.SafeZone
+    local c  = pv.coords
+    NetworkResurrectLocalPlayer(c.x, c.y, c.z, pv.heading, true, true)
+
+    local ped = PlayerPedId()
+    SetEntityVisible(ped, false, false)
+    SetEntityInvincible(ped, true)
+    FreezeEntityPosition(ped, true)
+    RequestCollisionAtCoord(c.x, c.y, c.z)
+
+    CreateCinematicCamera()
     DisplayHud(false)
     DisplayRadar(false)
-    SetNuiFocus(true, true)
-    SendNUIMessage({ type = "showCharacterCreation" })
+
+    -- Give the world a moment to stream in before revealing
+    CreateThread(function()
+        Wait(600)
+        DoScreenFadeIn(500)
+        SetNuiFocus(true, true)
+        SendNUIMessage({ type = "showCharacterCreation" })
+    end)
 end)
 
 AddStateBagChangeHandler("firstTime", nil, function(bagName, key, value)
@@ -93,7 +116,7 @@ end)
 
 -- ── Cinematic camera ──────────────────────────────────────────────────────────
 
-local function CreateCinematicCamera()
+CreateCinematicCamera = function()
     local ped      = PlayerPedId()
     local camCoords = GetOffsetFromEntityInWorldCoords(ped, 0.0, 3.0, 1.0)
     cam = CreateCam("DEFAULT_SCRIPTED_CAMERA", true)
@@ -104,7 +127,7 @@ local function CreateCinematicCamera()
     RenderScriptCams(true, true, 1000, true, true)
 end
 
-local function DestroyCinematicCamera()
+DestroyCinematicCamera = function()
     if cam then
         RenderScriptCams(false, true, 1000, true, true)
         DestroyCam(cam, false)
@@ -156,9 +179,17 @@ RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
     -- Wait for ped model to fully apply before triggering outfit
     -- (SetPlayerModel resets appearance; applyOutfit must run after)
     Wait(300)
-    TriggerEvent("SPZ:applyOutfit")
 
-    DoScreenFadeIn(1000)
+    if isNewCharacter then
+        -- Brand-new character: open the illenium customization suite once so
+        -- they build their face/heritage. spz-appearance saves the result.
+        isNewCharacter = false
+        DoScreenFadeIn(500)
+        TriggerEvent("SPZ:openAppearanceCustomization")
+    else
+        TriggerEvent("SPZ:applyOutfit")
+        DoScreenFadeIn(1000)
+    end
 end)
 
 -- ── Show play menu ────────────────────────────────────────────────────────────
@@ -170,15 +201,29 @@ RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
     isMenuOpen = true
 
     KillLoadingScreen()
-    DoScreenFadeIn(500)
+
+    -- Fixed showcase scene: always preview from the same spot instead of
+    -- wherever the ped happens to be.
+    local pv = Config.PreviewLocation or Config.SafeZone
+    NetworkResurrectLocalPlayer(pv.coords.x, pv.coords.y, pv.coords.z, pv.heading, true, true)
+    RequestCollisionAtCoord(pv.coords.x, pv.coords.y, pv.coords.z)
 
     local ped = PlayerPedId()
+    SetEntityCoords(ped, pv.coords.x, pv.coords.y, pv.coords.z, false, false, false, true)
+    SetEntityHeading(ped, pv.heading)
     FreezeEntityPosition(ped, true)
     SetEntityVisible(ped, true)
+    SetEntityInvincible(ped, true)
     DisplayHud(false)
     DisplayRadar(false)
 
     CreateCinematicCamera()
+
+    -- Let the area stream in before revealing
+    CreateThread(function()
+        Wait(400)
+        DoScreenFadeIn(500)
+    end)
 
     -- Enrich with statebag data
     local state = LocalPlayer.state
@@ -210,6 +255,7 @@ RegisterNetEvent("SPZ:characterCreateCompleted", function(success, message)
         isMenuOpen = false
         SetNuiFocus(false, false)
         SendNUIMessage({ type = "hide" })
+        DestroyCinematicCamera()   -- play menu creates its own; don't leak this one
         FreezeEntityPosition(PlayerPedId(), false)
         DisplayHud(true)
         DisplayRadar(true)
