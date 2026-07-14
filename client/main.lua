@@ -116,23 +116,78 @@ end)
 
 -- ── Cinematic camera ──────────────────────────────────────────────────────────
 
+-- Slow orbit around the ped with gentle height drift and shallow
+-- depth-of-field — character-select feel instead of a static shot.
+local camOrbitActive = false
+
 CreateCinematicCamera = function()
-    local ped      = PlayerPedId()
-    local camCoords = GetOffsetFromEntityInWorldCoords(ped, 0.0, 3.0, 1.0)
+    if cam then return end
     cam = CreateCam("DEFAULT_SCRIPTED_CAMERA", true)
-    SetCamCoord(cam, camCoords.x, camCoords.y, camCoords.z)
-    PointCamAtEntity(cam, ped, 0.0, 0.0, 0.0, true)
-    SetCamFov(cam, 50.0)
+    SetCamFov(cam, 45.0)
     SetCamActive(cam, true)
     RenderScriptCams(true, true, 1000, true, true)
+
+    -- Subtle DOF: ped sharp, background only lightly softened
+    SetCamUseShallowDofMode(cam, true)
+    SetCamNearDof(cam, 1.5)
+    SetCamFarDof(cam, 10.0)
+    SetCamDofStrength(cam, 0.3)
+
+    -- Golden-hour backdrop while in the menus
+    NetworkOverrideClockTime(18, 30, 0)
+
+    camOrbitActive = true
+    CreateThread(function()
+        -- Start behind-right of the ped, drift slowly counter-clockwise
+        local angle  = (Config.PreviewLocation and Config.PreviewLocation.heading or 0.0) + 210.0
+        local radius = 3.4
+        while camOrbitActive and cam do
+            local ped = PlayerPedId()
+            local pc  = GetEntityCoords(ped)
+
+            angle = angle + 0.05   -- ~3°/s at 60 fps → full orbit ≈ 2 min
+            local rad = math.rad(angle)
+            SetCamCoord(cam,
+                pc.x + math.cos(rad) * radius,
+                pc.y + math.sin(rad) * radius,
+                pc.z + 0.55 + math.sin(rad * 0.5) * 0.18)   -- gentle rise/fall
+            PointCamAtCoord(cam, pc.x, pc.y, pc.z + 0.45)
+
+            SetUseHiDof()   -- must be asserted every frame for DOF to render
+            Wait(0)
+        end
+    end)
 end
 
 DestroyCinematicCamera = function()
+    camOrbitActive = false
     if cam then
         RenderScriptCams(false, true, 1000, true, true)
         DestroyCam(cam, false)
         cam = nil
     end
+end
+
+-- Relaxed idle pose while showcased in the menu
+local IDLE_DICT = "anim@heists@heist_corona@team_idles@male_a"
+local IDLE_ANIM = "idle"
+
+local function PlayMenuIdle()
+    CreateThread(function()
+        local ped = PlayerPedId()
+        RequestAnimDict(IDLE_DICT)
+        local tries = 0
+        while not HasAnimDictLoaded(IDLE_DICT) and tries < 100 do
+            Wait(50)
+            tries = tries + 1
+        end
+        if HasAnimDictLoaded(IDLE_DICT) then
+            -- flag 1 = loop
+            TaskPlayAnim(ped, IDLE_DICT, IDLE_ANIM, 2.0, 2.0, -1, 1, 0.0, false, false, false)
+        else
+            TaskStartScenarioInPlace(ped, "WORLD_HUMAN_STAND_IMPATIENT", 0, true)
+        end
+    end)
 end
 
 -- ── Physical spawn ────────────────────────────────────────────────────────────
@@ -168,7 +223,15 @@ RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
     local heading = data.heading or Config.SafeZone.heading
     NetworkResurrectLocalPlayer(coords.x, coords.y, coords.z, heading, true, true)
 
+    -- Back to server-synced time (menu forced golden hour)
+    pcall(function() NetworkClearClockTimeOverride() end)
+
     local ped = PlayerPedId()
+    ClearPedTasksImmediately(ped)   -- drop the menu idle pose
+    -- A freshly swapped freemode model has uninitialised component state;
+    -- without defaults fivem-appearance's settings builder returns undefined and its
+    -- UI crashes ("reading 'masks'/'hats'").
+    SetPedDefaultComponentVariation(ped)
     SetEntityVisible(ped, true, false)
     SetEntityInvincible(ped, false)
     ClearPedBloodDamage(ped)
@@ -179,17 +242,8 @@ RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
     -- Wait for ped model to fully apply before triggering outfit
     -- (SetPlayerModel resets appearance; applyOutfit must run after)
     Wait(300)
-
-    if isNewCharacter then
-        -- Brand-new character: open the illenium customization suite once so
-        -- they build their face/heritage. spz-appearance saves the result.
-        isNewCharacter = false
-        DoScreenFadeIn(500)
-        TriggerEvent("SPZ:openAppearanceCustomization")
-    else
-        TriggerEvent("SPZ:applyOutfit")
-        DoScreenFadeIn(1000)
-    end
+    TriggerEvent("SPZ:applyOutfit")
+    DoScreenFadeIn(1000)
 end)
 
 -- ── Show play menu ────────────────────────────────────────────────────────────
@@ -217,6 +271,7 @@ RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
     DisplayHud(false)
     DisplayRadar(false)
 
+    PlayMenuIdle()
     CreateCinematicCamera()
 
     -- Let the area stream in before revealing
@@ -243,25 +298,55 @@ RegisterNUICallback('startSpawn', function(data, cb)
     cb('ok')
 end)
 
+local pendingGender = 0
+
 RegisterNUICallback('submitCharacterCreation', function(data, cb)
+    pendingGender = tonumber(data.gender) or 0
     TriggerServerEvent("SPZ:characterCreated", data.gender, data.name)
     cb('ok')
 end)
 
 -- ── Character creation response ────────────────────────────────────────────────
+-- New-character flow: creation UI → fivem-appearance dress-up → play menu → spawn.
 
 RegisterNetEvent("SPZ:characterCreateCompleted", function(success, message)
-    if success then
-        isMenuOpen = false
-        SetNuiFocus(false, false)
-        SendNUIMessage({ type = "hide" })
-        DestroyCinematicCamera()   -- play menu creates its own; don't leak this one
-        FreezeEntityPosition(PlayerPedId(), false)
-        DisplayHud(true)
-        DisplayRadar(true)
-    else
+    if not success then
         SendNUIMessage({ type = "characterCreationError", message = message or "Unknown error." })
+        return
     end
+
+    SetNuiFocus(false, false)
+    SendNUIMessage({ type = "hide" })
+    DestroyCinematicCamera()
+    -- Keep isMenuOpen = true: blocks the play-menu poll + the server's
+    -- characterReady-triggered showPlayMenu while fivem-appearance is on screen.
+
+    CreateThread(function()
+        -- Swap to the chosen gender's freemode model at the preview scene
+        local modelHash = pendingGender == 1 and `mp_f_freemode_01` or `mp_m_freemode_01`
+        RequestModel(modelHash)
+        local t = 0
+        while not HasModelLoaded(modelHash) and t < 300 do Wait(10) t = t + 1 end
+        SetPlayerModel(PlayerId(), modelHash)
+        SetModelAsNoLongerNeeded(modelHash)
+        Wait(150)
+
+        local ped = PlayerPedId()
+        SetPedDefaultComponentVariation(ped)   -- fivem-appearance needs initialised components
+        SetEntityVisible(ped, true, false)
+        FreezeEntityPosition(ped, false)
+        Wait(250)
+
+        print("^2[spz-spawn] Creation complete — opening appearance customization^7")
+        TriggerEvent("SPZ:openAppearanceCustomization")
+    end)
+end)
+
+-- fivem-appearance finished (saved or cancelled) → now show the play menu
+AddEventHandler("SPZ:appearanceCustomizationDone", function()
+    print("^2[spz-spawn] Customization done — requesting play menu^7")
+    isMenuOpen = false
+    TriggerServerEvent("SPZ:requestPlayMenu")
 end)
 
 -- ── Utilities ─────────────────────────────────────────────────────────────────

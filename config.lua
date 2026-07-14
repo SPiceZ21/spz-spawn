@@ -24,10 +24,10 @@ Config.SafeZone = {
 }
 
 -- Fixed showcase location for the play-menu / character-creation preview.
--- The ped is placed here (frozen) and the cinematic camera frames it, so the
+-- The ped is placed here (frozen) and the cinematic camera orbits it, so the
 -- menu backdrop is always the same scene instead of wherever the ped happens
--- to be. Galileo Observatory overlook — city skyline behind the character.
+-- to be. North Chumash coastline — ocean + cliffs behind the character.
 Config.PreviewLocation = {
-    coords  = vec3(-421.85, 1109.90, 227.25),
-    heading = 160.0,
+    coords  = vec3(-2168.49, 5187.63, 16.07),
+    heading = 200.71,
 }
