@@ -243,6 +243,18 @@ RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
     -- (SetPlayerModel resets appearance; applyOutfit must run after)
     Wait(300)
     TriggerEvent("SPZ:applyOutfit")
+
+    -- Guarantee full control after the outfit apply — an appearance model swap
+    -- can otherwise leave the player ghosted / frozen.
+    CreateThread(function()
+        Wait(800)
+        local p = PlayerPedId()
+        SetLocalPlayerAsGhost(false)
+        SetEntityCollision(p, true, true)
+        FreezeEntityPosition(p, false)
+        SetPlayerControl(PlayerId(), true, 0)
+    end)
+
     DoScreenFadeIn(1000)
 end)
 
