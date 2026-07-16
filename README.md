@@ -34,7 +34,7 @@ Build: `cd ui && npm run build`
 
 ## Dependencies
 - spawnmanager
-- spz-lib
+- ox_lib
 - spz-core
 - spz-identity
 
