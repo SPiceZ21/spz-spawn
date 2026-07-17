@@ -1,5 +1,27 @@
 import { useState, useEffect, useRef } from 'preact/hooks'
-import { Clock, MapPin, Play, ChevronLeft, ChevronRight, User, Sparkles, Check, AlertCircle, Fingerprint } from 'lucide-preact'
+import { Clock, MapPin, Play, ChevronLeft, ChevronRight, User, Sparkles, Check, AlertCircle, Fingerprint, Flag, Hash } from 'lucide-preact'
+
+/* ISO 3166-1 alpha-2 — drives the flag shown on nametags and race standings */
+const NATIONS: [string, string][] = [
+  ['ar', 'Argentina'], ['au', 'Australia'], ['at', 'Austria'], ['az', 'Azerbaijan'],
+  ['bh', 'Bahrain'], ['bd', 'Bangladesh'], ['be', 'Belgium'], ['br', 'Brazil'],
+  ['ca', 'Canada'], ['cl', 'Chile'], ['cn', 'China'], ['co', 'Colombia'],
+  ['hr', 'Croatia'], ['cz', 'Czechia'], ['dk', 'Denmark'], ['eg', 'Egypt'],
+  ['ee', 'Estonia'], ['fi', 'Finland'], ['fr', 'France'], ['de', 'Germany'],
+  ['gr', 'Greece'], ['hu', 'Hungary'], ['is', 'Iceland'], ['in', 'India'],
+  ['id', 'Indonesia'], ['ie', 'Ireland'], ['il', 'Israel'], ['it', 'Italy'],
+  ['jp', 'Japan'], ['kz', 'Kazakhstan'], ['ke', 'Kenya'], ['kw', 'Kuwait'],
+  ['lv', 'Latvia'], ['lt', 'Lithuania'], ['my', 'Malaysia'], ['mx', 'Mexico'],
+  ['mc', 'Monaco'], ['ma', 'Morocco'], ['np', 'Nepal'], ['nl', 'Netherlands'],
+  ['nz', 'New Zealand'], ['ng', 'Nigeria'], ['no', 'Norway'], ['pk', 'Pakistan'],
+  ['pe', 'Peru'], ['ph', 'Philippines'], ['pl', 'Poland'], ['pt', 'Portugal'],
+  ['qa', 'Qatar'], ['ro', 'Romania'], ['sa', 'Saudi Arabia'], ['rs', 'Serbia'],
+  ['sg', 'Singapore'], ['sk', 'Slovakia'], ['si', 'Slovenia'], ['za', 'South Africa'],
+  ['kr', 'South Korea'], ['es', 'Spain'], ['lk', 'Sri Lanka'], ['se', 'Sweden'],
+  ['ch', 'Switzerland'], ['tw', 'Taiwan'], ['th', 'Thailand'], ['tr', 'Türkiye'],
+  ['ua', 'Ukraine'], ['ae', 'United Arab Emirates'], ['gb', 'United Kingdom'],
+  ['us', 'United States'], ['uy', 'Uruguay'], ['vn', 'Vietnam'],
+]
 
 interface SpawnPoint {
   label: string
@@ -158,6 +180,8 @@ export function App() {
 function CharacterCreation({ serverError, onClearError }: { serverError: string | null, onClearError: () => void }) {
   const [name, setName] = useState('');
   const [gender, setGender] = useState(0);
+  const [nation, setNation] = useState('');
+  const [raceNumber, setRaceNumber] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -165,15 +189,18 @@ function CharacterCreation({ serverError, onClearError }: { serverError: string 
   }, [serverError]);
 
   const isValidName = /^[a-zA-Z0-9_]{3,16}$/.test(name);
+  const numValue = parseInt(raceNumber, 10);
+  const isValidNumber = !isNaN(numValue) && numValue >= 1 && numValue <= 99;
+  const canSubmit = isValidName && nation !== '' && isValidNumber && !submitting;
 
   const submitCreation = () => {
-    if (!isValidName || submitting) return;
+    if (!canSubmit) return;
     setSubmitting(true);
     onClearError();
     fetch(`https://${GetParentResourceName()}/submitCharacterCreation`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, gender }),
+      body: JSON.stringify({ name, gender, nation, raceNumber: numValue }),
     }).catch(() => { setSubmitting(false) })
   }
 
@@ -247,7 +274,7 @@ function CharacterCreation({ serverError, onClearError }: { serverError: string 
                 <span class="gender-card-label">Male Base</span>
               </div>
 
-              <div 
+              <div
                 class={`gender-card ${gender === 1 ? 'active' : ''}`}
                 onClick={() => setGender(1)}
               >
@@ -261,19 +288,61 @@ function CharacterCreation({ serverError, onClearError }: { serverError: string 
               </div>
             </div>
           </div>
+
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nation</label>
+              <div class="input-wrapper">
+                <span class="input-icon-left">
+                  {nation
+                    ? <img src={`flags/${nation}.webp`} style={{ height: '12px', borderRadius: '2px' }} />
+                    : <Flag size={16} color="var(--gray-600)" />}
+                </span>
+                <select
+                  class="alias-input"
+                  value={nation}
+                  onChange={(e) => setNation((e.target as HTMLSelectElement).value)}
+                  style={{ appearance: 'none', cursor: 'pointer', color: nation ? undefined : 'var(--gray-500)' }}
+                >
+                  <option value="" disabled>Select nation...</option>
+                  {NATIONS.map(([code, label]) => (
+                    <option key={code} value={code}>{label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ width: '130px', flexShrink: 0 }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Race Number</label>
+              <div class="input-wrapper">
+                <span class="input-icon-left">
+                  <Hash size={16} color={raceNumber.length === 0 ? 'var(--gray-600)' : isValidNumber ? 'var(--color-primary)' : '#ef4444'} />
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={raceNumber}
+                  onInput={(e) => setRaceNumber((e.target as HTMLInputElement).value.replace(/\D/g, '').slice(0, 2))}
+                  placeholder="1-99"
+                  class={`alias-input ${raceNumber.length > 0 && !isValidNumber ? 'invalid' : ''}`}
+                  maxLength={2}
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         <div
           class="start-btn"
-          onClick={isValidName && !submitting ? submitCreation : undefined}
+          onClick={canSubmit ? submitCreation : undefined}
           style={{
             width: '100%',
             display: 'flex',
             height: '44px',
-            opacity: isValidName && !submitting ? 1 : 0.5,
-            cursor: isValidName && !submitting ? 'pointer' : 'not-allowed',
-            boxShadow: isValidName && !submitting ? undefined : 'none',
-            borderColor: isValidName && !submitting ? undefined : 'var(--gray-800)'
+            opacity: canSubmit ? 1 : 0.5,
+            cursor: canSubmit ? 'pointer' : 'not-allowed',
+            boxShadow: canSubmit ? undefined : 'none',
+            borderColor: canSubmit ? undefined : 'var(--gray-800)'
           }}
         >
           <div
@@ -281,13 +350,13 @@ function CharacterCreation({ serverError, onClearError }: { serverError: string 
             style={{
               flex: 1,
               justifyContent: 'center',
-              background: isValidName && !submitting ? undefined : 'var(--gray-800)',
-              color: isValidName && !submitting ? undefined : 'var(--gray-500)'
+              background: canSubmit ? undefined : 'var(--gray-800)',
+              color: canSubmit ? undefined : 'var(--gray-500)'
             }}
           >
             {submitting ? 'Initializing...' : 'Confirm Identity'}
           </div>
-          <div class="start-btn-icon" style={{ background: isValidName && !submitting ? undefined : 'var(--gray-900)', borderColor: isValidName && !submitting ? undefined : 'var(--gray-800)', color: isValidName && !submitting ? undefined : 'var(--gray-600)' }}>
+          <div class="start-btn-icon" style={{ background: canSubmit ? undefined : 'var(--gray-900)', borderColor: canSubmit ? undefined : 'var(--gray-800)', color: canSubmit ? undefined : 'var(--gray-600)' }}>
             <Play size={16} />
           </div>
         </div>
