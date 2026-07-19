@@ -133,8 +133,9 @@ CreateCinematicCamera = function()
     SetCamFarDof(cam, 10.0)
     SetCamDofStrength(cam, 0.3)
 
-    -- Golden-hour backdrop while in the menus
-    NetworkOverrideClockTime(18, 30, 0)
+    -- Time is owned by spz-core (GlobalState envTime, re-asserted every frame).
+    -- Overriding it here made the menu flicker between the two clocks — set
+    -- Config.Environment.hour in spz-core to change the backdrop instead.
 
     camOrbitActive = true
     CreateThread(function()
