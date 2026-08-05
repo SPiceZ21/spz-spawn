@@ -48,6 +48,8 @@ export function App() {
   const [spawns, setSpawns] = useState<SpawnPoint[]>([])
   const [selected, setSelected] = useState(0)
   const [creationError, setCreationError] = useState<string | null>(null)
+  const [cover, setCover] = useState(false)
+  const [coverFading, setCoverFading] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -64,6 +66,13 @@ export function App() {
         setCreationError(e.data.message || 'An error occurred.')
       } else if (e.data.type === 'hide') {
         setView('none')
+      } else if (e.data.type === 'showCover') {
+        setCoverFading(false)
+        setCover(true)
+      } else if (e.data.type === 'hideCover') {
+        // fade out, then unmount so the menu underneath is revealed
+        setCoverFading(true)
+        setTimeout(() => setCover(false), 750)
       }
     }
     window.addEventListener('message', handler)
@@ -95,16 +104,17 @@ export function App() {
     setView('none')
   }
 
-  if (view === 'none') return null
-
-  if (view === 'creation') {
-    return <CharacterCreation serverError={creationError} onClearError={() => setCreationError(null)} />
-  }
-
   const licenseClass = player.licenseClass || 'D'
 
   return (
     <>
+      {cover && <Cover fading={coverFading} />}
+
+      {view === 'creation' && (
+        <CharacterCreation serverError={creationError} onClearError={() => setCreationError(null)} />
+      )}
+
+      {view === 'spawn' && (<>
       <div class="player-card modular-panel">
         <div class="spz-card modular-card title-card" style={{ justifyContent: 'space-between' }}>
           <span class="spz-eyebrow" style={{ color: 'var(--color-primary)' }}>{player.stateText || 'IDLE'}</span>
@@ -173,7 +183,67 @@ export function App() {
           <div class="start-btn-icon"><Play size={16} /></div>
         </div>
       </div>
+      </>)}
     </>
+  )
+}
+
+/* Full-screen branded cover — bridges the loading screen and the spawn menu so
+   the raw world streaming / ped placement is never visible. */
+function Cover({ fading }: { fading: boolean }) {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 99999,
+        background: '#0a0a0c',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '24px',
+        opacity: fading ? 0 : 1,
+        transition: 'opacity 700ms ease',
+        pointerEvents: fading ? 'none' : 'auto',
+      }}
+    >
+      <style>{`@keyframes spzspin{to{transform:rotate(360deg)}}@keyframes spzpulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
+      <div
+        style={{
+          fontFamily: "'Panchang','Space Grotesk',sans-serif",
+          fontWeight: 800,
+          fontSize: '38px',
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+          color: '#fff',
+        }}
+      >
+        SP<span style={{ color: '#ff6600' }}>i</span>ceZ
+      </div>
+      <div
+        style={{
+          width: '34px',
+          height: '34px',
+          border: '3px solid rgba(255,255,255,0.12)',
+          borderTopColor: '#ff6600',
+          borderRadius: '50%',
+          animation: 'spzspin 0.8s linear infinite',
+        }}
+      />
+      <div
+        style={{
+          fontFamily: 'monospace',
+          fontSize: '11px',
+          letterSpacing: '0.24em',
+          textTransform: 'uppercase',
+          color: 'rgba(255,255,255,0.4)',
+          animation: 'spzpulse 1.8s ease-in-out infinite',
+        }}
+      >
+        Preparing your session
+      </div>
+    </div>
   )
 }
 
