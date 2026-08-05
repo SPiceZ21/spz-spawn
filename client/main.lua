@@ -39,6 +39,9 @@ end
 RegisterNetEvent("SPZ:openCharacterCreation", function()
     if isSpawned or isMenuOpen then return end
     print("^2[spz-spawn] Opening character creation^7")
+    -- Raise the branded cover BEFORE killing the loading screen, so the raw
+    -- world streaming / ped placement is never visible — feels like one screen.
+    SendNUIMessage({ type = "showCover" })
     KillLoadingScreen()
     isMenuOpen     = true
     isNewCharacter = true
@@ -59,12 +62,15 @@ RegisterNetEvent("SPZ:openCharacterCreation", function()
     DisplayHud(false)
     DisplayRadar(false)
 
-    -- Give the world a moment to stream in before revealing
+    -- Reveal as soon as the area is actually streamed (preloaded in the
+    -- background), not after a blind fixed wait.
     CreateThread(function()
-        Wait(600)
-        DoScreenFadeIn(500)
+        AwaitCollision(c, 1500)
+        DoScreenFadeIn(400)
         SetNuiFocus(true, true)
         SendNUIMessage({ type = "showCharacterCreation" })
+        Wait(350)                                   -- let the menu mount underneath
+        SendNUIMessage({ type = "hideCover" })      -- fade the cover away → reveal
     end)
 end)
 
@@ -80,6 +86,9 @@ local function DisableSpawnManager()
     pcall(function()
         exports.spawnmanager:setAutoSpawn(false)
         exports.spawnmanager:forceGameState('MANUAL')
+        -- no-op autospawn callback: even if something flips autospawn on, it can't
+        -- drop the ped at a random spawnpoint. spz-spawn is the only spawner.
+        exports.spawnmanager:setAutoSpawnCallback(function() end)
     end)
 end
 
@@ -87,6 +96,48 @@ DisableSpawnManager()
 AddEventHandler('onClientResourceStart', function(r) if GetCurrentResourceName() == r then DisableSpawnManager() end end)
 AddEventHandler("onClientMapStart", DisableSpawnManager)
 CreateThread(function() for i = 1,50 do DisableSpawnManager() Wait(100) end end)
+
+-- ── Showcase preloader ────────────────────────────────────────────────────────
+-- The showcase location is FIXED (Config.PreviewLocation), so stream it in the
+-- background WHILE the loading screen / identity load is still going, instead of
+-- discovering it and blocking when the menu opens. SetFocusPosAndVel forces the
+-- engine to stream that area even though the player ped isn't there yet. Also
+-- preloads both freemode peds + the idle anim so nothing loads lazily at reveal.
+
+local PREVIEW_IDLE_DICT = "anim@heists@heist_corona@team_idles@male_a"
+local previewReady = false
+
+-- Wait until collision is actually streamed around an entity (or a cap), instead
+-- of a blind fixed sleep. Returns as soon as it's ready → usually much faster.
+local function AwaitCollision(c, capMs)
+    local ped = PlayerPedId()
+    local deadline = GetGameTimer() + (capMs or 1500)
+    while GetGameTimer() < deadline do
+        RequestCollisionAtCoord(c.x, c.y, c.z)
+        if HasCollisionLoadedAroundEntity(ped) then return true end
+        Wait(0)
+    end
+    return false
+end
+
+CreateThread(function()
+    local pv = Config.PreviewLocation or Config.SafeZone
+    if not pv or not pv.coords then return end
+    local c = pv.coords
+
+    RequestModel(`mp_m_freemode_01`)
+    RequestModel(`mp_f_freemode_01`)
+    RequestAnimDict(PREVIEW_IDLE_DICT)
+
+    -- Hold streaming focus on the showcase spot until the player actually spawns
+    -- into the world (their ped presence then holds it).
+    while not isSpawned do
+        SetFocusPosAndVel(c.x, c.y, c.z, 0.0, 0.0, 0.0)
+        RequestCollisionAtCoord(c.x, c.y, c.z)
+        if HasAnimDictLoaded(PREVIEW_IDLE_DICT) then previewReady = true end
+        Wait(200)
+    end
+end)
 
 -- ── Play menu request ─────────────────────────────────────────────────────────
 
@@ -106,11 +157,11 @@ end)
 
 -- Polling fallback (in case identityReady was missed)
 CreateThread(function()
-    Wait(3000) -- shorter initial wait
+    Wait(1000) -- shorter initial wait; identityReady is the fast path
     HandleFirstTimeSetup()
     while not isSpawned and not isMenuOpen do
         RequestPlayMenu()
-        Wait(3000)
+        Wait(1500)
     end
 end)
 
@@ -228,32 +279,81 @@ RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
     pcall(function() NetworkClearClockTimeOverride() end)
 
     local ped = PlayerPedId()
+
+    -- ── HOLD the ped in place while the map streams in underneath ─────────────
+    -- Without this the player is dropped at the coords before the terrain
+    -- collision has loaded and falls through the world. Freeze + pin the exact
+    -- position, force-stream collision there, and don't release / fade in until
+    -- the ground is actually loaded.
+    SetEntityCoordsNoOffset(ped, coords.x, coords.y, coords.z, false, false, false)
+    SetEntityHeading(ped, heading)
+    FreezeEntityPosition(ped, true)
+    SetEntityInvincible(ped, true)
+
     ClearPedTasksImmediately(ped)   -- drop the menu idle pose
     -- A freshly swapped freemode model has uninitialised component state;
     -- without defaults fivem-appearance's settings builder returns undefined and its
     -- UI crashes ("reading 'masks'/'hats'").
     SetPedDefaultComponentVariation(ped)
     SetEntityVisible(ped, true, false)
-    SetEntityInvincible(ped, false)
     ClearPedBloodDamage(ped)
     RemoveAllPedWeapons(ped, true)
 
     isSpawned = true
 
-    -- Wait for ped model to fully apply before triggering outfit
-    -- (SetPlayerModel resets appearance; applyOutfit must run after)
-    Wait(300)
+    -- Force-stream the world under the spawn. The reliable signal that the
+    -- terrain is actually loaded is that GetGroundZ SUCCEEDS — HasCollisionLoaded
+    -- can report true too early on a frozen ped, leaving us at a raw config Z
+    -- that's embedded in / under the mesh. So we spin until the ground is
+    -- queryable (cast from ABOVE the surface), pinning the ped each iteration.
+    local x, y, z = coords.x, coords.y, coords.z
+    SetFocusPosAndVel(x, y, z, 0.0, 0.0, 0.0)
+
+    local gok, groundZ = false, z
+    local tries = 0
+    while tries < 300 do   -- up to ~6s
+        RequestCollisionAtCoord(x, y, z)
+        SetEntityCoordsNoOffset(ped, x, y, z, false, false, false)
+        FreezeEntityPosition(ped, true)
+        gok, groundZ = GetGroundZFor_3dCoord(x, y, z + 50.0, false)
+        if gok and HasCollisionLoadedAroundEntity(ped) then break end
+        Wait(20)
+        tries = tries + 1
+    end
+    ClearFocus()
+
+    -- Land the ped exactly on the mesh surface (or, if the ground never
+    -- resolved, keep the config Z as a fallback).
+    if gok then z = groundZ + 1.0 end
+    SetEntityCoordsNoOffset(ped, x, y, z, false, false, false)
+    SetEntityHeading(ped, heading)
+    print(("^3[spz-spawn] collision tries=%d gok=%s groundZ=%.2f finalZ=%.2f^7")
+        :format(tries, tostring(gok), groundZ, z))
+
+    Wait(150)
     TriggerEvent("SPZ:applyOutfit")
 
-    -- Guarantee full control after the outfit apply — an appearance model swap
-    -- can otherwise leave the player ghosted / frozen.
     CreateThread(function()
-        Wait(800)
+        Wait(600)
         local p = PlayerPedId()
         SetLocalPlayerAsGhost(false)
         SetEntityCollision(p, true, true)
-        FreezeEntityPosition(p, false)
+        FreezeEntityPosition(p, false)     -- unfreeze only now that land exists
+        SetEntityInvincible(p, false)
         SetPlayerControl(PlayerId(), true, 0)
+
+        -- Safety net: if something teleports the ped right after spawn (e.g. an
+        -- appearance model swap dropping it at the origin), snap it back to the
+        -- spawn point. A real walk can't cover >25m in this window.
+        for _ = 1, 10 do
+            Wait(150)
+            local cur = GetEntityCoords(PlayerPedId())
+            if #(vector3(cur.x, cur.y, cur.z) - vector3(x, y, z)) > 25.0 then
+                local pp = PlayerPedId()
+                SetEntityCoordsNoOffset(pp, x, y, z, false, false, false)
+                SetEntityHeading(pp, heading)
+            end
+        end
     end)
 
     DoScreenFadeIn(1000)
@@ -267,6 +367,7 @@ RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
     print("^2[spz-spawn] Showing play menu^7")
     isMenuOpen = true
 
+    SendNUIMessage({ type = "showCover" })   -- cover the streaming behind the menu
     KillLoadingScreen()
 
     -- Fixed showcase scene: always preview from the same spot instead of
@@ -287,12 +388,6 @@ RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
     PlayMenuIdle()
     CreateCinematicCamera()
 
-    -- Let the area stream in before revealing
-    CreateThread(function()
-        Wait(400)
-        DoScreenFadeIn(500)
-    end)
-
     -- Enrich with statebag data
     local state = LocalPlayer.state
     playerData.avatar       = state.avatarUrl    or "https://i.imgur.com/8NzA8m8.png"
@@ -302,6 +397,15 @@ RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
 
     SendNUIMessage({ type = 'show', playerData = playerData, spawns = Config.Spawns })
     SetNuiFocus(true, true)
+
+    -- Reveal once the (preloaded) area is streamed and the menu has mounted —
+    -- the cover fades away last, so nothing raw is ever seen.
+    CreateThread(function()
+        AwaitCollision(pv.coords, 1500)
+        DoScreenFadeIn(400)
+        Wait(350)
+        SendNUIMessage({ type = "hideCover" })
+    end)
 end)
 
 -- ── NUI callbacks ─────────────────────────────────────────────────────────────
