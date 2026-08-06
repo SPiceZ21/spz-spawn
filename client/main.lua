@@ -69,7 +69,7 @@ RegisterNetEvent("SPZ:openCharacterCreation", function()
         DoScreenFadeIn(400)
         SetNuiFocus(true, true)
         SendNUIMessage({ type = "showCharacterCreation" })
-        Wait(350)                                   -- let the menu mount underneath
+        Wait(900)                                   -- hold the cover a touch, let the menu mount
         SendNUIMessage({ type = "hideCover" })      -- fade the cover away → reveal
     end)
 end)
@@ -403,7 +403,7 @@ RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
     CreateThread(function()
         AwaitCollision(pv.coords, 1500)
         DoScreenFadeIn(400)
-        Wait(350)
+        Wait(900)
         SendNUIMessage({ type = "hideCover" })
     end)
 end)
