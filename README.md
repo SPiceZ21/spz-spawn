@@ -1,42 +1,64 @@
-<div align="center">
-
-<img src="https://github.com/SPiceZ21/spz-core-media-kit/raw/main/Banner/Banner%232.png" alt="SPiceZ-Core Banner" width="100%"/>
-
-<br/>
-
 # spz-spawn
-> Standalone Spawning Manager · `v1.1.6`
 
-## Scripts
+> Play menu, spawn points, world entry · `v2.1.0`
 
-| Side   | File                   | Purpose                                           |
-| ------ | ---------------------- | ------------------------------------------------- |
-| Shared | `@spz-core/config.lua` | Imported core configuration                       |
-| Shared | `config.lua`           | Spawn point and options configuration             |
-| Client | `client/main.lua`      | Spawn screen NUI bridge, character placement      |
-| Server | `server/main.lua`      | Spawn authority, player identity validation       |
+## Overview
+
+`spz-spawn` takes the player from the loading screen into the world. Returning players get
+a cinematic play menu with their stats and a spawn-point picker; first-time players go
+through `spz-identity` character creation first and only see the menu once the profile is
+complete.
+
+## Structure
+
+| Side | File | Purpose |
+|---|---|---|
+| Shared | `@spz-core/config.lua` | Imported core configuration |
+| Shared | `config.lua` | Spawn points and menu options |
+| Client | `client/main.lua` | NUI bridge, camera, model set, teleport |
+| Server | `server/main.lua` | Spawn authority, profile gating |
+
+## First-time handling
+
+- **Server** — ignores play-menu requests while `profile.first_time == 1`.
+- **Client** — shuts the loading screen down, fades the world in, waits for
+  `SPZ:characterReady`, then requests the menu.
+
+## Events
+
+| Event | Purpose |
+|---|---|
+| `SPZ:showPlayMenu` | Open the menu with player metadata |
+| `SPZ:spawnPlayerTarget` | Perform the physical spawn (model, teleport, resurrect) |
+
+```lua
+TriggerEvent('SPZ:showPlayMenu', { name = 'RacerX', rank = 'C-5', tier = 0, gender = 0 })
+```
+
+## Configuration
+
+```lua
+Config.Spawns = {
+    [1] = { label = 'Safe Zone', coords = vector4(x, y, z, w) },
+}
+```
 
 ## NUI
 
-**Stack:** Vite · Preact · TypeScript · spz-ui
+Vite · Preact · TypeScript on the [spz-ui](../spz-ui/README.md) component set.
 
-```
-ui/
-├── src/
-│   ├── app.tsx
-│   ├── components/       # spz-ui components
-│   └── styles/
-└── dist/                 # built output (served by FiveM)
-    └── index.html
+```bash
+cd ui && npm install && npm run build   # → ui/dist/index.html
 ```
 
-Build: `cd ui && npm run build`
+## Commands
+
+`/testspawn` · `/testcreation` (development helpers)
 
 ## Dependencies
-- spawnmanager
-- ox_lib
-- spz-core
-- spz-identity
 
-## CI
-Built and released via `.github/workflows/release.yml` on push to `main`.
+`spawnmanager` · `ox_lib` · `spz-core` · `spz-identity`
+
+---
+
+Part of [SPiceZ-Core](../README.md) · GPL-3.0
