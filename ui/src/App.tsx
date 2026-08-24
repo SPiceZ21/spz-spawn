@@ -42,6 +42,33 @@ function formatPlaytime(seconds: number): string {
   return `${String(hrs).padStart(2, '0')} HRS ${String(mins).padStart(2, '0')} MINS`
 }
 
+// Base theme (server.cfg spz_theme_* convars, pushed from spz-core) mapped
+// onto this page's own CSS variable names (theme.css). Unknown/missing keys
+// are a no-op since the stylesheet's own defaults still apply.
+const THEME_VARS: Record<string, string> = {
+  accent: '--color-primary',
+  accent2: '--color-secondary',
+  bg: '--bg-app',
+  bg2: '--bg-card',
+}
+// rgba(...) glows/tints reference the accent as raw components so they can
+// carry their own alpha — keep those in sync too.
+const THEME_RGB_VARS: Record<string, string> = { accent: '--color-primary-rgb' }
+function hexToRgbTriplet(hex?: string): string | null {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '')
+  return m ? `${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}` : null
+}
+function applyTheme(theme?: Record<string, string>) {
+  if (!theme) return
+  for (const key in THEME_VARS) {
+    if (theme[key]) document.documentElement.style.setProperty(THEME_VARS[key], theme[key])
+  }
+  for (const key in THEME_RGB_VARS) {
+    const rgb = theme[key] && hexToRgbTriplet(theme[key])
+    if (rgb) document.documentElement.style.setProperty(THEME_RGB_VARS[key], rgb)
+  }
+}
+
 export function App() {
   const [view, setView] = useState<'none' | 'spawn' | 'creation'>('none')
   const [player, setPlayer] = useState<PlayerData>({})
@@ -73,6 +100,8 @@ export function App() {
         // fade out, then unmount so the menu underneath is revealed
         setCoverFading(true)
         setTimeout(() => setCover(false), 750)
+      } else if (e.data.type === 'theme') {
+        applyTheme(e.data.theme)
       }
     }
     window.addEventListener('message', handler)
@@ -198,7 +227,7 @@ function Cover({ fading }: { fading: boolean }) {
         inset: 0,
         zIndex: 99999,
         background:
-          'radial-gradient(130% 90% at 50% 0%, rgba(255,102,0,0.12), transparent 55%), radial-gradient(100% 100% at 50% 120%, rgba(255,102,0,0.06), transparent 60%), #08090b',
+          'radial-gradient(130% 90% at 50% 0%, rgba(var(--color-primary-rgb), 0.12), transparent 55%), radial-gradient(100% 100% at 50% 120%, rgba(var(--color-primary-rgb), 0.06), transparent 60%), #08090b',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -214,7 +243,7 @@ function Cover({ fading }: { fading: boolean }) {
         @keyframes spzrise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
         @keyframes spzblob{0%,100%{border-radius:42% 58% 60% 40% / 45% 45% 55% 55%}25%{border-radius:60% 40% 45% 55% / 55% 60% 40% 45%}50%{border-radius:45% 55% 48% 52% / 60% 45% 55% 40%}75%{border-radius:55% 45% 55% 45% / 42% 55% 45% 58%}}
         @keyframes spzblobspin{to{transform:rotate(360deg)}}
-        @keyframes spzglow{0%,100%{box-shadow:0 0 40px 6px rgba(255,102,0,0.45),inset 0 -8px 20px rgba(120,40,0,0.5)}50%{box-shadow:0 0 66px 16px rgba(255,102,0,0.72),inset 0 -8px 20px rgba(120,40,0,0.5)}}
+        @keyframes spzglow{0%,100%{box-shadow:0 0 40px 6px rgba(var(--color-primary-rgb),0.45),inset 0 -8px 20px rgba(120,40,0,0.5)}50%{box-shadow:0 0 66px 16px rgba(var(--color-primary-rgb),0.72),inset 0 -8px 20px rgba(120,40,0,0.5)}}
       `}</style>
 
       {/* faint grid / scanline texture */}
@@ -234,7 +263,7 @@ function Cover({ fading }: { fading: boolean }) {
           style={{
             width: '82px',
             height: '82px',
-            background: 'radial-gradient(circle at 34% 28%, #ffcf9c, #ff6600 50%, #a63a00 100%)',
+            background: 'radial-gradient(circle at 34% 28%, #ffcf9c, var(--color-primary) 50%, #a63a00 100%)',
             borderRadius: '42% 58% 60% 40% / 45% 45% 55% 55%',
             animation: 'spzblob 6s ease-in-out infinite, spzblobspin 14s linear infinite, spzglow 2.4s ease-in-out infinite',
           }}
@@ -246,7 +275,7 @@ function Cover({ fading }: { fading: boolean }) {
         <img
           src="logo.png"
           alt="SPiceZ"
-          style={{ height: '58px', width: 'auto', filter: 'drop-shadow(0 8px 40px rgba(255,102,0,0.3))' }}
+          style={{ height: '58px', width: 'auto', filter: 'drop-shadow(0 8px 40px rgba(var(--color-primary-rgb), 0.3))' }}
         />
         <div
           style={{
@@ -289,7 +318,7 @@ function Cover({ fading }: { fading: boolean }) {
           zIndex: 1,
         }}
       >
-        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ff6600', boxShadow: '0 0 9px #ff6600' }} />
+        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--color-primary)', boxShadow: '0 0 9px var(--color-primary)' }} />
         <span
           style={{
             fontFamily: 'monospace',

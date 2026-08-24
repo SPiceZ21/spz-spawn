@@ -81,9 +81,9 @@
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  background: rgba(255, 98, 0, 0.12);
+  background: rgba(var(--color-primary-rgb), 0.12);
   color: var(--color-primary);
-  border: 1px solid rgba(255, 98, 0, 0.3);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
 }
 
 .avatar-ring {
@@ -146,7 +146,7 @@
   transition: all 150ms;
 }
 .loc-nav:hover {
-  background: rgba(255, 98, 0, 0.15);
+  background: rgba(var(--color-primary-rgb), 0.15);
   transform: scale(1.1);
 }
 .loc-content {
@@ -162,7 +162,7 @@
   font-size: 13px;
   color: var(--color-primary);
   font-weight: 800;
-  text-shadow: 0 0 10px rgba(255, 98, 0, 0.3);
+  text-shadow: 0 0 10px rgba(var(--color-primary-rgb), 0.3);
 }
 .loc-name { font-size: 14px; color: var(--gray-50); font-weight: 600; white-space: nowrap; }
 
@@ -183,7 +183,7 @@
   background: var(--color-primary);
   width: 16px;
   border-radius: 3px;
-  box-shadow: 0 0 8px rgba(255, 98, 0, 0.4);
+  box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.4);
 }
 
 .panel-hint {
@@ -218,12 +218,12 @@
   border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
-  box-shadow: 0 0 20px rgba(255, 98, 0, 0.2), 0 0 0 1px rgba(255, 98, 0, 0.15);
+  box-shadow: 0 0 20px rgba(var(--color-primary-rgb), 0.2), 0 0 0 1px rgba(var(--color-primary-rgb), 0.15);
   transition: box-shadow 150ms;
   height: 44px;
   user-select: none;
 }
-.start-btn:hover { box-shadow: 0 0 28px rgba(255, 98, 0, 0.45), 0 0 0 1px rgba(255, 98, 0, 0.35); }
+.start-btn:hover { box-shadow: 0 0 28px rgba(var(--color-primary-rgb), 0.45), 0 0 0 1px rgba(var(--color-primary-rgb), 0.35); }
 .start-btn:active { transform: scale(0.98); }
 .start-btn-text {
   background: var(--color-primary);
@@ -238,8 +238,8 @@
   align-items: center;
 }
 .start-btn-icon {
-  background: rgba(255, 98, 0, 0.15);
-  border-left: 1px solid rgba(255, 98, 0, 0.4);
+  background: rgba(var(--color-primary-rgb), 0.15);
+  border-left: 1px solid rgba(var(--color-primary-rgb), 0.4);
   display: flex;
   align-items: center;
   padding: 0 14px;
@@ -303,7 +303,7 @@
 .alias-input:focus {
   border-color: var(--color-primary);
   background: rgba(0, 0, 0, 0.6);
-  box-shadow: 0 0 10px rgba(255, 98, 0, 0.15);
+  box-shadow: 0 0 10px rgba(var(--color-primary-rgb), 0.15);
 }
 
 .alias-input.invalid:focus {
@@ -353,9 +353,9 @@
 }
 
 .gender-card.active {
-  background: rgba(255, 98, 0, 0.05);
+  background: rgba(var(--color-primary-rgb), 0.05);
   border-color: var(--color-primary);
-  box-shadow: 0 4px 20px rgba(255, 98, 0, 0.12);
+  box-shadow: 0 4px 20px rgba(var(--color-primary-rgb), 0.12);
 }
 
 .gender-card.active:hover {
@@ -376,10 +376,10 @@
 }
 
 .gender-card.active .gender-card-icon {
-  background: rgba(255, 98, 0, 0.1);
-  border-color: rgba(255, 98, 0, 0.3);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-color: rgba(var(--color-primary-rgb), 0.3);
   color: var(--color-primary);
-  box-shadow: 0 0 10px rgba(255, 98, 0, 0.2);
+  box-shadow: 0 0 10px rgba(var(--color-primary-rgb), 0.2);
 }
 
 .gender-card-label {
