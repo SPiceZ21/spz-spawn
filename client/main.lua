@@ -1,5 +1,17 @@
 -- client/main.lua
 
+-- Base theme (server.cfg spz_theme_* convars via spz-core).
+local function pushSpawnTheme(theme)
+    if theme and next(theme) then
+        SendNUIMessage({ type = 'theme', theme = theme })
+    end
+end
+CreateThread(function()
+    local ok, theme = pcall(function() return exports['spz-core']:GetTheme() end)
+    if ok then pushSpawnTheme(theme) end
+end)
+AddEventHandler('SPZ:themeUpdated', function(theme) pushSpawnTheme(theme) end)
+
 local isSpawned  = false
 local isMenuOpen = false
 local cam        = nil
@@ -125,8 +137,8 @@ CreateThread(function()
     if not pv or not pv.coords then return end
     local c = pv.coords
 
-    RequestModel(`mp_m_freemode_01`)
-    RequestModel(`mp_f_freemode_01`)
+    RequestModel('mp_m_freemode_01')
+    RequestModel('mp_f_freemode_01')
     RequestAnimDict(PREVIEW_IDLE_DICT)
 
     -- Hold streaming focus on the showcase spot until the player actually spawns
@@ -246,7 +258,7 @@ end
 
 RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
     -- gender: 0 = male (mp_m_freemode_01), 1 = female (mp_f_freemode_01)
-    local modelHash = data.gender == 1 and `mp_f_freemode_01` or `mp_m_freemode_01`
+    local modelHash = data.gender == 1 and 'mp_f_freemode_01' or 'mp_m_freemode_01'
 
     DoScreenFadeOut(500)
     Wait(500)
@@ -440,7 +452,7 @@ RegisterNetEvent("SPZ:characterCreateCompleted", function(success, message)
 
     CreateThread(function()
         -- Swap to the chosen gender's freemode model at the preview scene
-        local modelHash = pendingGender == 1 and `mp_f_freemode_01` or `mp_m_freemode_01`
+        local modelHash = pendingGender == 1 and 'mp_f_freemode_01' or 'mp_m_freemode_01'
         RequestModel(modelHash)
         local t = 0
         while not HasModelLoaded(modelHash) and t < 300 do Wait(10) t = t + 1 end
