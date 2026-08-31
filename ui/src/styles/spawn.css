@@ -1,0 +1,421 @@
+/*
+ * Spawn menu.
+ *
+ * Composed as a shot, not as a page. The ped and the world behind it are the
+ * subject; the UI is furniture placed around the frame edges so the middle
+ * stays clear. Everything sits inside the letterbox, hard against the bars.
+ *
+ * Three anchors, no floating boxes in the middle:
+ *   top-left     who you are
+ *   bottom-left  where you are going
+ *   bottom-right the commitment
+ */
+
+.sm-root {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: var(--gray-50);
+  font-family: var(--font-secondary);
+}
+
+.sm-root > * {
+  pointer-events: auto;
+}
+
+/* ── Cinematic bars ───────────────────────────────────────────────────── */
+/*
+ * Real letterbox: they slide in from off-frame on open and take the frame with
+ * them. Height is in vh so the crop is proportional at any resolution rather
+ * than a fixed pixel band that swallows a 720p screen and disappears on 1440p.
+ *
+ * They also do a job beyond mood — they give every element in here a hard edge
+ * to sit against, which is what stops the layout drifting around on different
+ * aspect ratios.
+ */
+
+.sm-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 8.5vh;
+  background: #000;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.sm-bar.top {
+  top: 0;
+  animation: sm-bar-top 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.sm-bar.bottom {
+  bottom: 0;
+  animation: sm-bar-bottom 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* No trim on the inner edge. A letterbox is a crop, not a component — an accent
+   line along it turns the bars into a UI frame and gives away that they are
+   drawn rather than shot. */
+
+@keyframes sm-bar-top {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes sm-bar-bottom {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/*
+ * Vignette and scrim.
+ *
+ * This is not mood lighting, it is legibility insurance. The backdrop is
+ * whatever the world happens to be behind the ped, and at midday over Los
+ * Santos that is a bright sky — white 300-weight display type disappears into
+ * it completely. The gradients guarantee a dark ground under every anchor no
+ * matter what is rendered behind them.
+ *
+ * The bottom band reaches far enough up to cover the destination block, which
+ * sits around 45% of the way up the frame, not just the last few pixels.
+ */
+.sm-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% 50%, transparent 34%, rgba(0, 0, 0, 0.6) 100%),
+    linear-gradient(to right, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.3) 22%, transparent 40%),
+    linear-gradient(to top, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.62) 16%, rgba(0, 0, 0, 0.22) 34%, transparent 50%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.3) 12%, transparent 26%);
+}
+
+/* ── Driver, top-left ─────────────────────────────────────────────────── */
+
+.sm-driver {
+  position: absolute;
+  top: calc(8.5vh + 30px);
+  left: 46px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  animation: sm-in-left 620ms cubic-bezier(0.16, 1, 0.3, 1) 260ms both;
+}
+
+.sm-avatar {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(var(--color-primary-rgb), 0.55),
+    0 0 22px -4px rgba(var(--color-primary-rgb), 0.6);
+}
+
+.sm-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sm-driver-text {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.sm-eyebrow {
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(var(--color-primary-rgb), 0.9);
+}
+
+.sm-eyebrow i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 9px var(--color-primary);
+}
+
+.sm-name {
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-primary);
+  font-weight: 600;
+  font-size: 21px;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sm-chip {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.13);
+  box-shadow: inset 0 0 0 1px rgba(var(--color-primary-rgb), 0.35);
+}
+
+.sm-chip.muted {
+  color: var(--gray-400);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.sm-meta {
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  color: var(--gray-500);
+}
+
+/* ── Destination, bottom-left ─────────────────────────────────────────── */
+
+.sm-dest {
+  position: absolute;
+  bottom: calc(8.5vh + 34px);
+  left: 46px;
+  right: 46px;
+  display: flex;
+  align-items: flex-end;
+  gap: 30px;
+  animation: sm-in-up 640ms cubic-bezier(0.16, 1, 0.3, 1) 340ms both;
+}
+
+.sm-dest-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/*
+ * The index is set as large as the name and sits beside it, because on a list
+ * of six identical-looking districts the ordinal is what you actually navigate
+ * by. It is the counter, not a decoration.
+ */
+.sm-dest-line {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  min-width: 0;
+}
+
+.sm-index {
+  text-shadow: 0 0 30px rgba(var(--color-primary-rgb), 0.4), 0 3px 18px rgba(0, 0, 0, 0.8);
+  font-family: var(--font-primary);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 40px;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  color: rgba(var(--color-primary-rgb), 0.9);
+  flex-shrink: 0;
+}
+
+.sm-index small {
+  font-size: 15px;
+  font-style: normal;
+  font-weight: 500;
+  color: var(--gray-600);
+  margin-left: 3px;
+}
+
+.sm-place {
+  text-shadow: 0 3px 22px rgba(0, 0, 0, 0.85);
+  font-family: var(--font-primary);
+  font-weight: 300;
+  font-size: 40px;
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Re-keyed on every change so the name cuts to the next one rather than
+   cross-fading — a cut is faster to read and matches the camera language. */
+.sm-place, .sm-index {
+  animation: sm-cut 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes sm-cut {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Track: one segment per spawn ─────────────────────────────────────── */
+/*
+ * Segments rather than dots. Dots stop scanning past about five; a segmented
+ * bar stays readable because position along the bar carries the meaning, not
+ * the count of circles you have to tally.
+ */
+
+.sm-track {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.sm-seg {
+  height: 3px;
+  width: 30px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.16);
+  cursor: pointer;
+  transition: all 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sm-seg:hover {
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.sm-seg.on {
+  width: 58px;
+  background: var(--color-primary);
+  box-shadow: 0 0 14px rgba(var(--color-primary-rgb), 0.75);
+}
+
+/* ── Commit, bottom-right ─────────────────────────────────────────────── */
+
+.sm-commit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.sm-go {
+  position: relative;
+  height: 58px;
+  padding: 0 28px 0 32px;
+  border: 0;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  overflow: hidden;
+  background: var(--color-primary);
+  color: #08080a;
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  box-shadow: 0 16px 40px -14px rgba(var(--color-primary-rgb), 0.95);
+  transition: transform 180ms var(--anim-ease), filter 180ms var(--anim-ease);
+}
+
+.sm-go:hover {
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+}
+
+.sm-go:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.sm-go svg {
+  opacity: 0.85;
+}
+
+.sm-go::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 38%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: sm-sheen 2.6s cubic-bezier(0.16, 1, 0.3, 1) 1.2s infinite;
+}
+
+@keyframes sm-sheen {
+  0%        { transform: translateX(-180%); }
+  38%, 100% { transform: translateX(420%); }
+}
+
+/* ── Key hints ────────────────────────────────────────────────────────── */
+
+.sm-keys {
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+.sm-key {
+  min-width: 21px;
+  height: 21px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.13);
+  color: var(--gray-200);
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.sm-sep {
+  color: var(--gray-700);
+}
+
+/* ── Entrances ────────────────────────────────────────────────────────── */
+
+@keyframes sm-in-left {
+  from { opacity: 0; transform: translateX(-22px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes sm-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 720p and the 16:10 laptops common in FiveM cannot carry 40px display type
+   alongside an 8.5vh crop top and bottom. */
+@media (max-height: 800px) {
+  .sm-bar { height: 7vh; }
+  .sm-driver { top: calc(7vh + 20px); left: 36px; }
+  .sm-dest { bottom: calc(7vh + 24px); left: 36px; right: 36px; gap: 22px; }
+  .sm-index, .sm-place { font-size: 31px; }
+  .sm-name { font-size: 18px; }
+  .sm-avatar { width: 44px; height: 44px; }
+  .sm-go { height: 50px; font-size: 13.5px; }
+}
