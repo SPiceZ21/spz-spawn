@@ -9,6 +9,9 @@ author 'SPiceZ-Core'
 ui_page 'ui/dist/index.html'
 
 shared_scripts {
+    -- ox_lib was listed as a dependency but never actually loaded, so `lib` was
+    -- nil in this resource. Anything reaching for it errored.
+    '@ox_lib/init.lua',
     '@spz-core/config.lua',
     'config.lua'
 }
