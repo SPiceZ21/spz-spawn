@@ -4,8 +4,10 @@
   left: 0;
   right: 0;
   bottom: 0;
+  /* No backdrop-filter: over a transparent NUI page the blur has nothing to
+     sample (the game is composited under the browser surface, not in the page)
+     and CEF resolves it to solid BLACK. */
   background-color: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(8px);
   z-index: var(--z-modal);
   display: flex;
   align-items: center;
