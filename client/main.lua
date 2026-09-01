@@ -102,7 +102,8 @@ RegisterNetEvent("SPZ:openCharacterCreation", function(route)
     FreezeEntityPosition(ped, true)
     RequestCollisionAtCoord(c.x, c.y, c.z)
 
-    CreateCinematicCamera()
+    -- Framed to the RIGHT: the creation rail owns the left of the screen.
+    CreateCinematicCamera(CAM_COMPOSE_CREATION)
     DisplayHud(false)
     DisplayRadar(false)
 
@@ -288,9 +289,54 @@ end
 
 local camOrbitActive = false
 
-local CAM_ORBIT_DPS  = 2.6    -- degrees per second — full orbit ≈ 2m20s
-local CAM_RADIUS     = 3.4
-local CAM_FOV        = 45.0
+--- SHOT LIST, not an orbit.
+---
+--- The old camera was one constant-speed circle at a fixed radius, height and
+--- FOV. Nothing about the framing ever changed, so after ten seconds the eye had
+--- seen the whole shot and the rest was just waiting — and a constant angular
+--- rate is the single most recognisable "script camera" tell there is.
+---
+--- This is a route through five framings instead: a slow low push-in, a rise to
+--- a close three-quarter, a wide crane, a low pull-out. Radius, height, FOV and
+--- the speed of the arc all change per leg, so the shot keeps giving the player
+--- something new to look at.
+---
+--- Keyframes are POLAR and RELATIVE to the ped's heading (angle 0 = directly in
+--- front of the ped). Polar because interpolating positions in a straight line
+--- between two points on opposite sides of the ped would fly the camera THROUGH
+--- them; an arc cannot. Relative to heading so the framing is the same shot no
+--- matter which way the preview scene faces.
+---
+--- `ang` only ever increases: the loop closes by ending 360° on from where it
+--- started, at the same radius/height/FOV, so the last leg runs into the first
+--- with no cut and no visible seam.
+local CAM_SHOTS = {
+    -- ang (deg, ped-relative), rad (m), h (m above ped root), fov, look (aim height), dur (s to NEXT keyframe), ease
+    { ang = 200.0, rad = 3.8, h = 0.30, fov = 47.0, look = 0.50, dur = 9.0,  ease = 0.75 }, -- low, wide, behind-left
+    { ang = 250.0, rad = 2.4, h = 0.95, fov = 40.0, look = 0.68, dur = 7.5,  ease = 0.55 }, -- push in and rise
+    { ang = 318.0, rad = 1.9, h = 1.20, fov = 35.0, look = 0.78, dur = 8.5,  ease = 0.70 }, -- close three-quarter, near the face
+    { ang = 392.0, rad = 3.4, h = 0.45, fov = 46.0, look = 0.42, dur = 10.0, ease = 0.60 }, -- drop and pull out, front-right
+    { ang = 470.0, rad = 4.6, h = 1.65, fov = 52.0, look = 0.55, dur = 11.0, ease = 0.65 }, -- crane up and away
+    { ang = 560.0, rad = 3.8, h = 0.30, fov = 47.0, look = 0.50 },                          -- == keyframe 1, +360° → seamless loop
+}
+
+-- ── Framing ───────────────────────────────────────────────────────────────────
+--
+-- Where the ped sits ACROSS the frame, as a fraction of the half-width: 0 is
+-- dead centre, +1 would be the right edge. Positive = right of screen.
+--
+-- Character creation docks its rail down the left, so a centred ped stands
+-- behind the form the player is filling in — they pick a model, a nation and a
+-- number for someone half-hidden by a panel. The play menu keeps 0.0: its UI is
+-- anchored to the frame corners with the middle deliberately clear, so centre is
+-- the right composition there.
+--
+-- It is the AIM point that moves, not the camera. PointCamAtCoord recentres
+-- whatever it is given, so aiming a little to the ped's left is what pushes the
+-- ped to the right; moving the camera sideways would only orbit it, because the
+-- aim would follow it round and the framing would come out identical.
+local camComposeX = 0.0
+local CAM_COMPOSE_CREATION = 0.42   -- ped centred in the space beside the rail
 
 --- Sum of two sines at frequencies chosen not to share a period. Returns
 --- roughly -1..1 and never repeats on any timescale the player will sit through.
@@ -298,18 +344,51 @@ local function drift(t, f1, f2, phase)
     return (math.sin(t * f1 + phase) * 0.62) + (math.sin(t * f2 + phase * 1.7) * 0.38)
 end
 
-CreateCinematicCamera = function()
+--- Blend of linear and smoothstep. Pure smoothstep stops dead at every keyframe,
+--- which reads as six separate shots stapled together; pure linear corners at
+--- them. `k` is how much breath a leg gets: 0 = constant speed, 1 = full ease.
+local function ease(t, k)
+    local s = t * t * (3.0 - 2.0 * t)
+    return t + (s - t) * (k or 0.6)
+end
+
+--- Where the camera is at `t` seconds into the (looping) shot list.
+--- Returns angle, radius, height, fov, aim height.
+local function sampleShots(t)
+    local total = 0.0
+    for i = 1, #CAM_SHOTS - 1 do total = total + CAM_SHOTS[i].dur end
+
+    t = t % total
+    for i = 1, #CAM_SHOTS - 1 do
+        local a, b = CAM_SHOTS[i], CAM_SHOTS[i + 1]
+        if t < a.dur then
+            local f = ease(t / a.dur, a.ease)
+            return a.ang  + (b.ang  - a.ang)  * f,
+                   a.rad  + (b.rad  - a.rad)  * f,
+                   a.h    + (b.h    - a.h)    * f,
+                   a.fov  + (b.fov  - a.fov)  * f,
+                   a.look + (b.look - a.look) * f
+        end
+        t = t - a.dur
+    end
+
+    local last = CAM_SHOTS[#CAM_SHOTS]
+    return last.ang, last.rad, last.h, last.fov, last.look
+end
+
+--- `composeX` is the framing offset described above — omitted means centred.
+CreateCinematicCamera = function(composeX)
+    camComposeX = tonumber(composeX) or 0.0
     if cam then return end
     cam = CreateCam("DEFAULT_SCRIPTED_CAMERA", true)
-    SetCamFov(cam, CAM_FOV)
+    SetCamFov(cam, CAM_SHOTS[1].fov)
     SetCamActive(cam, true)
     RenderScriptCams(true, true, 1000, true, true)
 
-    -- Subtle DOF: ped sharp, background only lightly softened
+    -- DOF is now tied to the shot: the close framings get a shallower, nearer
+    -- focus plane than the wide ones, which is the actual difference between a
+    -- portrait lens and an establishing shot.
     SetCamUseShallowDofMode(cam, true)
-    SetCamNearDof(cam, 1.5)
-    SetCamFarDof(cam, 10.0)
-    SetCamDofStrength(cam, 0.3)
 
     -- Time is owned by spz-core (GlobalState envTime, re-asserted every frame).
     -- Overriding it here made the menu flicker between the two clocks — set
@@ -317,7 +396,10 @@ CreateCinematicCamera = function()
 
     camOrbitActive = true
     CreateThread(function()
-        local startAngle = (Config.PreviewLocation and Config.PreviewLocation.heading or 0.0) + 210.0
+        -- Everything is driven by WALL TIME, not per-frame increments. A camera
+        -- advanced a fixed amount every frame runs at whatever speed the
+        -- player's framerate happens to be — a 144 Hz client moved nearly two
+        -- and a half times faster than a 60 Hz one, and a frame hitch jerked it.
         local t0 = GetGameTimer()
 
         while camOrbitActive and cam do
@@ -325,37 +407,64 @@ CreateCinematicCamera = function()
             local pc  = GetEntityCoords(ped)
             local t   = (GetGameTimer() - t0) / 1000.0
 
-            -- Orbit: behind-right of the ped, drifting counter-clockwise.
-            local angle = startAngle + t * CAM_ORBIT_DPS
-            local rad   = math.rad(angle)
+            local ang, radius, height, fov, look = sampleShots(t)
 
-            -- Handheld translation: centimetres, not metres. Enough to feel
-            -- alive, small enough that you would not name it if asked.
-            local swayX = drift(t, 0.37, 0.83, 0.0)  * 0.022
-            local swayY = drift(t, 0.29, 0.71, 2.1)  * 0.022
-            local swayZ = drift(t, 0.23, 0.61, 4.3)  * 0.030
+            -- Ped-relative angle → world. GTA headings run clockwise from north,
+            -- so the ped's front is -sin/+cos, and the shot angle is added on top.
+            local rad = math.rad(GetEntityHeading(ped) + ang)
+
+            -- Handheld sway: centimetres, not metres. Enough to feel alive,
+            -- small enough that you would not name it if asked. Scaled DOWN as
+            -- the camera closes in — the same absolute wobble that reads as an
+            -- operator breathing at four metres reads as a nervous twitch at two.
+            local near  = math.min(1.0, radius / 3.8)
+            local swayX = drift(t, 0.37, 0.83, 0.0) * 0.022 * near
+            local swayY = drift(t, 0.29, 0.71, 2.1) * 0.022 * near
+            local swayZ = drift(t, 0.23, 0.61, 4.3) * 0.030 * near
 
             SetCamCoord(cam,
-                pc.x + math.cos(rad) * CAM_RADIUS + swayX,
-                pc.y + math.sin(rad) * CAM_RADIUS + swayY,
-                pc.z + 0.55 + math.sin(rad * 0.5) * 0.18 + swayZ)
+                pc.x - math.sin(rad) * radius + swayX,
+                pc.y + math.cos(rad) * radius + swayY,
+                pc.z + height + swayZ)
 
             -- Handheld ROTATION, applied by nudging the point being looked at
             -- rather than by setting the camera's rotation directly. A moving
             -- aim point gives the same sway with none of the matrix work, and it
             -- cannot fight PointCamAtCoord the way an explicit SetCamRot would.
-            -- Larger than the positional sway on purpose: at this distance a few
-            -- centimetres of aim drift is what the eye actually reads as
-            -- "someone is holding this".
-            local aimX = drift(t, 0.41, 0.97, 1.3) * 0.05
-            local aimY = drift(t, 0.33, 0.89, 3.7) * 0.05
-            local aimZ = drift(t, 0.19, 0.53, 5.2) * 0.035
+            local aimX = drift(t, 0.41, 0.97, 1.3) * 0.045 * near
+            local aimY = drift(t, 0.33, 0.89, 3.7) * 0.045 * near
+            local aimZ = drift(t, 0.19, 0.53, 5.2) * 0.030 * near
 
-            PointCamAtCoord(cam, pc.x + aimX, pc.y + aimY, pc.z + 0.45 + aimZ)
+            -- Framing offset: slide the aim point sideways along the camera's
+            -- own right axis so the ped lands off-centre in the frame.
+            --
+            -- Scaled by radius AND by the horizontal half-angle, so the ped
+            -- holds the same position ON SCREEN through every leg of the shot
+            -- list. A fixed metre offset would drift across the frame as the
+            -- camera pushed in and the lens went long — worst exactly on the
+            -- close three-quarter, where being half behind the rail is most
+            -- obvious.
+            local offX, offY = 0.0, 0.0
+            if camComposeX ~= 0.0 then
+                -- View direction is (sin, -cos); its right axis is (dy, -dx),
+                -- so aiming AGAINST that axis moves the subject to the right.
+                local tanHalf = math.tan(math.rad(fov * 0.5)) * GetAspectRatio(false)
+                local shift   = camComposeX * radius * tanHalf
+                offX = math.cos(rad) * shift
+                offY = math.sin(rad) * shift
+            end
 
-            -- Breath on the lens: under a degree, slow enough to be felt and not
-            -- seen. Real operators drift focal length; a locked FOV reads CG.
-            SetCamFov(cam, CAM_FOV + math.sin(t * 0.21) * 0.55)
+            PointCamAtCoord(cam, pc.x + aimX + offX, pc.y + aimY + offY, pc.z + look + aimZ)
+
+            -- Breath on the lens on top of the shot's own focal length: under a
+            -- degree, slow enough to be felt and not seen. A locked FOV reads CG.
+            SetCamFov(cam, fov + math.sin(t * 0.21) * 0.55)
+
+            -- Focus rides the subject distance, so the ped stays sharp on every
+            -- leg while the background softens more the closer the camera gets.
+            SetCamNearDof(cam, math.max(0.4, radius - 1.1))
+            SetCamFarDof(cam, radius + 4.0)
+            SetCamDofStrength(cam, 0.28 + (1.0 - near) * 0.22)
 
             SetUseHiDof()   -- must be asserted every frame for DOF to render
             Wait(0)
@@ -539,6 +648,99 @@ RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
     PlayMenuIdle()
     CreateCinematicCamera()
 
+    -- ── Show the player THEIR racer, not the game's default ───────────────────
+    --
+    -- Nothing here used to set a model, so the menu showed whatever ped the game
+    -- handed the client on connect — Michael (player_zero). The player's own ped
+    -- only appeared after START, because SPZ:spawnPlayerTarget is where the model
+    -- swap and the outfit apply actually lived. So the menu previewed a
+    -- character nobody had made, for a screen whose entire subject is the racer.
+    --
+    -- Do the same two steps the spawn does, but in the preview scene and without
+    -- letting go of the ped: base model from the profile's gender, then the saved
+    -- personal appearance on top.
+    CreateThread(function()
+        -- Only swap when the ped is not already the right base model: a swap
+        -- resets every component to defaults, so doing it needlessly would strip
+        -- the look off a ped that already had it (returning from creation).
+        --
+        -- RETRIED, and the result is checked. The swap can genuinely fail at
+        -- boot — the model is not resident yet — and a single unchecked attempt
+        -- is what left the menu showing Michael. Each attempt waits for the
+        -- model itself, so this is not a busy spin; it is "keep asking until the
+        -- streamer has it", with an end.
+        -- Normalised, because the value comes out of a database column and
+        -- `"1" == 1` is false in Lua: an unnormalised string would silently
+        -- preview every player as male.
+        local raw       = playerData.gender
+        local gender    = (raw == 1 or raw == '1' or raw == 'female' or raw == 'f') and 1 or 0
+        local want      = (gender == 1) and 'mp_f_freemode_01' or 'mp_m_freemode_01'
+        local wantHash  = GetHashKey(want)
+        local swapped   = GetEntityModel(PlayerPedId()) == wantHash
+
+        for _ = 1, 5 do
+            if swapped or not isMenuOpen then break end
+            swapped = ApplyPreviewModel(gender) and GetEntityModel(PlayerPedId()) == wantHash
+            if not swapped then Wait(1000) end
+        end
+
+        if not isMenuOpen then return end
+
+        if not swapped then
+            -- Say so rather than quietly previewing the wrong person. The outfit
+            -- apply below still runs: on a non-freemode ped spz-appearance falls
+            -- through to setPlayerAppearance, which swaps the model itself, so
+            -- this is a second chance rather than a dead end.
+            print("^1[spz-spawn] Preview model swap failed — menu may show the default ped^7")
+        end
+
+        -- Re-fetch: the model swap above hands back a NEW ped handle.
+        local pped = PlayerPedId()
+        SetEntityVisible(pped, true, false)
+
+        TriggerEvent("SPZ:applyOutfit")
+
+        -- spz-appearance's full-appearance path unfreezes the ped and hands
+        -- control back ~300ms after applying (it is written for a player who has
+        -- just spawned into the world). In the menu that would drop the ped out
+        -- of its pose and let it walk out of frame.
+        --
+        -- The apply is a server round-trip, so there is no single moment to
+        -- re-pin AFTER: hold the pose for a few seconds instead and re-assert it
+        -- whenever it actually drifts. Cheap, and it cannot miss the unfreeze.
+        local healed = false
+        for _ = 1, 20 do
+            Wait(150)
+            if not isMenuOpen then return end
+            local p = PlayerPedId()
+
+            -- Late heal: if the ped is STILL not the right base model — the
+            -- outfit apply's own fallback did not fire, or it fired before the
+            -- model was resident — take one more run at it now that several
+            -- seconds of streaming have passed. Cheap to check, and it is the
+            -- difference between a menu that eventually shows your racer and one
+            -- that shows Michael until you press START.
+            -- Once only: each attempt already waits up to ten seconds for the
+            -- model, so retrying it on every tick of this loop would stack those
+            -- waits instead of holding the pose.
+            if not healed and GetEntityModel(p) ~= wantHash then
+                healed = true
+                if ApplyPreviewModel(gender) then
+                    TriggerEvent("SPZ:applyOutfit")
+                end
+                p = PlayerPedId()
+            end
+
+            if not IsEntityPositionFrozen(p) then
+                SetEntityCoordsNoOffset(p, pv.coords.x, pv.coords.y, pv.coords.z, false, false, false)
+                SetEntityHeading(p, pv.heading)
+                FreezeEntityPosition(p, true)
+                SetEntityInvincible(p, true)
+                PlayMenuIdle()
+            end
+        end
+    end)
+
     -- Enrich with statebag data
     local state = LocalPlayer.state
     playerData.avatar       = state.avatarUrl    or "https://i.imgur.com/8NzA8m8.png"
@@ -581,10 +783,27 @@ local pendingGender = 0
 ApplyPreviewModel = function(gender)
     local modelHash = gender == 1 and 'mp_f_freemode_01' or 'mp_m_freemode_01'
 
-    RequestModel(modelHash)
+    -- Re-request every iteration, and wait ten seconds rather than three.
+    --
+    -- This is where "the menu shows Michael" came from. A single RequestModel
+    -- followed by a 3s cap is fine once the world is settled and is exactly the
+    -- wrong bet at boot: the menu opens while the showcase area is still
+    -- streaming, the freemode model is not in memory yet, the wait expires, and
+    -- this returned false — silently, to a caller that ignored the result. The
+    -- player was left as the game's default ped (player_zero, Michael) with
+    -- nothing to correct it, which is why pressing START then produced the
+    -- right racer: that path does the swap again, seconds later, when it works.
     local t = 0
-    while not HasModelLoaded(modelHash) and t < 300 do Wait(10) t = t + 1 end
-    if not HasModelLoaded(modelHash) then return false end
+    while not HasModelLoaded(modelHash) and t < 1000 do
+        RequestModel(modelHash)
+        Wait(10)
+        t = t + 1
+    end
+
+    if not HasModelLoaded(modelHash) then
+        print(("^1[spz-spawn] Model %s never loaded — preview ped left as-is^7"):format(modelHash))
+        return false
+    end
 
     SetPlayerModel(PlayerId(), modelHash)
     SetModelAsNoLongerNeeded(modelHash)
@@ -707,7 +926,8 @@ AddEventHandler("SPZ:appearanceCustomizationDone", function()
         FreezeEntityPosition(ped, true)
         PlayMenuIdle()
 
-        CreateCinematicCamera()
+        -- Still creation (returning from the appearance editor) — same framing.
+        CreateCinematicCamera(CAM_COMPOSE_CREATION)
         DisplayHud(false)
         DisplayRadar(false)
 

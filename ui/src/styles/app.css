@@ -247,8 +247,10 @@
 }
 
 /* Character Creation Redesign */
+/* Kept the class name so the markup does not have to change, but the blur is
+   gone: this is a full-screen scrim over a transparent NUI page, so the filter
+   sampled empty pixels and painted the character-creation backdrop black. */
 .custom-overlay-blur {
-  backdrop-filter: blur(12px) saturate(160%);
   background: rgba(4, 4, 6, 0.75);
 }
 

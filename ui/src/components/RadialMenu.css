@@ -4,8 +4,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* No backdrop-filter: over a transparent NUI page the blur has nothing to
+     sample (the game is composited under the browser surface, not in the page)
+     and CEF resolves it to solid BLACK. */
   background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
   z-index: var(--z-overlay);
   opacity: 0;
   pointer-events: none;
@@ -115,7 +117,6 @@
   opacity: 0;
   gap: var(--spacing-8);
   z-index: 5;
-  backdrop-filter: blur(4px);
 }
 
 .radial-menu-overlay.open .radial-menu-close {

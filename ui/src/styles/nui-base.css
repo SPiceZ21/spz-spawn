@@ -44,8 +44,10 @@ button { font-family: inherit; cursor: pointer; }
   display: flex;
   align-items: center;
   justify-content: center;
+  /* No backdrop-filter: over a transparent NUI page the blur has nothing to
+     sample (the game is composited under the browser surface, not in the page)
+     and CEF resolves it to solid BLACK. */
   background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
   pointer-events: auto;
 }
 
