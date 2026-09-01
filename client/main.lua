@@ -24,6 +24,7 @@ local isNewCharacter = false
 -- die on its first line every single time.
 local CreateCinematicCamera, DestroyCinematicCamera
 local PlayMenuIdle
+local ApplyPreviewModel
 
 -- ── Loading screen ────────────────────────────────────────────────────────────
 --
@@ -101,8 +102,6 @@ RegisterNetEvent("SPZ:openCharacterCreation", function(route)
     FreezeEntityPosition(ped, true)
     RequestCollisionAtCoord(c.x, c.y, c.z)
 
-    PlayMenuIdle()
-
     CreateCinematicCamera()
     DisplayHud(false)
     DisplayRadar(false)
@@ -110,6 +109,17 @@ RegisterNetEvent("SPZ:openCharacterCreation", function(route)
     -- Reveal as soon as the area is actually streamed (preloaded in the
     -- background), not after a blind fixed wait.
     CreateThread(function()
+        -- Put the ped on the default base model straight away.
+        --
+        -- Not cosmetic: fivem-appearance refuses to open on anything that is not
+        -- a freemode ped, and a freshly connected player is whatever model the
+        -- game handed them. The old flow got away with it because it called
+        -- SetPlayerModel before opening the editor; this flow only swaps the
+        -- model when the player CHANGES gender, so keeping the default meant the
+        -- editor was handed a non-freemode ped, bounced it, and fired Done
+        -- immediately — the appearance step never appeared.
+        ApplyPreviewModel(0)
+
         Wait(120)                 -- let the cover paint before anything uncovers
         LoadStage('world')
         AwaitCollision(c, 3000)
@@ -568,7 +578,7 @@ local pendingGender = 0
 --- rather than only in a label. Runs during creation only — the ped is frozen
 --- at the preview scene with a scripted camera on it, so a model swap here is
 --- safe in a way it would not be out in the world.
-local function ApplyPreviewModel(gender)
+ApplyPreviewModel = function(gender)
     local modelHash = gender == 1 and 'mp_f_freemode_01' or 'mp_m_freemode_01'
 
     RequestModel(modelHash)
@@ -622,7 +632,17 @@ RegisterNUICallback('openAppearanceStep', function(_, cb)
         SendNUIMessage({ type = "creationPause" })
         DestroyCinematicCamera()
 
+        -- fivem-appearance will refuse a non-freemode ped and quietly report
+        -- Done, which looks exactly like "the button did nothing". Guarantee the
+        -- model here rather than trusting that something upstream set it.
         local ped = PlayerPedId()
+        local model = GetEntityModel(ped)
+        if model ~= GetHashKey('mp_m_freemode_01') and model ~= GetHashKey('mp_f_freemode_01') then
+            print("^3[spz-spawn] Ped is not freemode before appearance step — applying base model^7")
+            ApplyPreviewModel(pendingGender)
+            ped = PlayerPedId()
+        end
+
         FreezeEntityPosition(ped, false)
         ClearPedTasksImmediately(ped)   -- drop the menu idle so the editor poses freely
 
