@@ -12,6 +12,65 @@
 -- with one decision — create a character, or show the play menu. One request,
 -- one reply, no polling, and nothing is sent to a client that has not spoken.
 
+-- ── The lobby bucket ─────────────────────────────────────────────────────────
+--
+-- A player between the loading screen and their first spawn is standing at a
+-- spawn point with a camera flying around them, in whatever appearance the last
+-- session left behind, sometimes for minutes. In freeroam that is a body in the
+-- middle of the world that everybody can see, drive into and be blocked by.
+--
+-- So each one gets their OWN bucket for that window, and is moved to freeroam
+-- only when they actually spawn. Per player rather than one shared lobby: two
+-- people picking a spawn point would otherwise watch each other stand there,
+-- and the camera fly-through would have strangers in the shot.
+--
+-- The bucket is deleted as they leave it. Ids are never reused by spz-core, so
+-- failing to delete would leak a registry entry per join for the life of the
+-- server.
+
+local LobbyBucket = {}     -- [source] = bucketId
+
+local function enterLobbyBucket(source)
+    if LobbyBucket[source] then return LobbyBucket[source] end
+
+    local id = exports['spz-core']:CreateBucket(("lobby_%s"):format(source), false)
+    if not id then
+        print(("^3[spz-spawn] Could not create a lobby bucket for %s — they will load into freeroam.^7")
+            :format(tostring(source)))
+        return nil
+    end
+
+    LobbyBucket[source] = id
+    exports['spz-core']:AssignPlayerToBucket(source, id)
+    return id
+end
+
+--- Back to freeroam, and the private bucket goes with them.
+---
+--- Order matters: the player is moved FIRST and the bucket deleted after, so
+--- the delete never runs against a bucket that still has somebody in it (which
+--- spz-core handles, loudly, by evacuating them — a warning nobody needs to
+--- read every time a player spawns).
+local function leaveLobbyBucket(source)
+    local id = LobbyBucket[source]
+    if not id then return end
+
+    LobbyBucket[source] = nil
+    exports['spz-core']:AssignPlayerToBucket(source, 0)
+    exports['spz-core']:DeleteBucket(id)
+end
+
+-- A player who disconnects at the menu never spawns, so nothing else would ever
+-- clean their bucket up.
+AddEventHandler("playerDropped", function()
+    local src = source
+    local id  = LobbyBucket[src]
+    if not id then return end
+
+    LobbyBucket[src] = nil
+    exports['spz-core']:DeleteBucket(id)
+end)
+
 --- Build the play-menu payload for a loaded profile.
 local function PlayMenuData(source, profile)
     return {
@@ -29,6 +88,10 @@ end
 --- gets the same answer rather than a second, conflicting one.
 local function SendRoute(source)
     local profile = exports['spz-identity']:AttachProfile(source)
+
+    -- Before either branch: whether they are creating a character or picking a
+    -- spawn, they are about to stand somewhere visible for a while.
+    enterLobbyBucket(source)
 
     if not profile then
         TriggerClientEvent("SPZ:spawn:route", source, {
@@ -74,6 +137,11 @@ local function SpawnPlayer(source, profile, spawnIndex)
         spawnData.coords  = Config.Spawns[spawnIndex].coords.xyz
         spawnData.heading = Config.Spawns[spawnIndex].coords.w
     end
+
+    -- Out of the private bucket and into the world BEFORE the client is told
+    -- where to put the ped: arriving in freeroam and then being routed there is
+    -- a visible pop for everyone already standing at that spawn point.
+    leaveLobbyBucket(source)
 
     TriggerClientEvent("SPZ:spawnPlayerTarget", source, spawnData)
 

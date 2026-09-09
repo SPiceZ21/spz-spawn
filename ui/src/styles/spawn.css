@@ -344,6 +344,19 @@
   transform: translateY(0) scale(0.99);
 }
 
+/* Pressed and waiting for the fade. Still fully legible — the menu is on screen
+   for another half second and a button that dims to nothing reads as a failed
+   click rather than an accepted one. The sheen stops because it is an
+   invitation, and the invitation has been taken. */
+.sm-go.is-committing {
+  cursor: default;
+  filter: saturate(0.75) brightness(0.92);
+  transform: none;
+}
+.sm-go.is-committing::after {
+  display: none;
+}
+
 .sm-go svg {
   opacity: 0.85;
 }
@@ -365,35 +378,40 @@
 
 /* ── Key hints ────────────────────────────────────────────────────────── */
 
+/* These sit under the Spawn button on a moving camera shot of the city, which
+   is about the worst background type can have. At 9px in gray-500 they were
+   effectively invisible — and they are the only thing telling a first-time
+   player that A and D move between spawn points at all. Sized to be read at a
+   glance instead. */
 .sm-keys {
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 12px;
   font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.16em;
+  font-size: 13px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--gray-500);
+  color: var(--gray-300);
 }
 
 .sm-key {
-  min-width: 21px;
-  height: 21px;
-  padding: 0 6px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 9px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.07);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.13);
-  color: var(--gray-200);
-  font-size: 9.5px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.20);
+  color: #fff;
+  font-size: 14px;
   font-weight: 700;
 }
 
 .sm-sep {
-  color: var(--gray-700);
+  color: var(--gray-600);
 }
 
 /* ── Entrances ────────────────────────────────────────────────────────── */

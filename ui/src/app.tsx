@@ -57,6 +57,9 @@ export function App() {
   const [creationError, setCreationError] = useState<string | null>(null)
   const [cover, setCover] = useState(false)
   const [coverFading, setCoverFading] = useState(false)
+  // Set the moment Spawn is pressed and cleared when the menu is next shown, so
+  // a second press cannot fire a second spawn while the fade is running.
+  const [committing, setCommitting] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -65,6 +68,7 @@ export function App() {
         setPlayer(e.data.playerData || {})
         setSpawns(e.data.spawns || [])
         setSelected(0)
+        setCommitting(false)
         setView('spawn')
       } else if (e.data.type === 'showCharacterCreation') {
         setCreationError(null)
@@ -104,13 +108,23 @@ export function App() {
     listRef.current?.querySelector('.active')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [selected])
 
+  /*
+   * Commit, but do NOT tear the menu down here.
+   *
+   * Hiding it on click dropped the player straight onto the raw camera shot for
+   * the half second before the screen faded — menu gone, world visible, then
+   * black. Lua fades out FIRST and sends `hide` on the other side of it, so the
+   * menu is only ever removed behind a black screen. All this does is stop the
+   * button being pressed twice while that plays out.
+   */
   const doStart = () => {
+    if (committing) return
+    setCommitting(true)
     fetch(`https://${GetParentResourceName()}/startSpawn`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ index: selected + 1 }),
     }).catch(() => {})
-    setView('none')
   }
 
   const licenseClass = player.licenseClass || 'D'
@@ -178,8 +192,12 @@ export function App() {
             </div>
 
             <div class="sm-commit">
-              <button class="sm-go" onClick={doStart}>
-                Spawn
+              <button
+                class={`sm-go${committing ? ' is-committing' : ''}`}
+                onClick={doStart}
+                disabled={committing}
+              >
+                {committing ? 'Spawning' : 'Spawn'}
                 <Play size={17} fill="currentColor" />
               </button>
               <div class="sm-keys">
