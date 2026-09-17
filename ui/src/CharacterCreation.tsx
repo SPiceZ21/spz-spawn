@@ -134,6 +134,7 @@ function NationPicker({ value, onPick }: { value: string; onPick: (code: string)
             <div
               key={code}
               class="cc-option"
+              role="button"
               data-cursor={i === cursor}
               data-picked={code === value}
               onMouseEnter={() => setCursor(i)}
@@ -253,11 +254,11 @@ export function CharacterCreation(
             <div class="cc-field" data-done="true">
               <div class="cc-label"><span class="cc-step">1</span>Base model</div>
               <div class="cc-models">
-                <div class="cc-model" data-on={gender === 0} onClick={() => pickGender(0)}>
+                <div class="cc-model" role="button" data-on={gender === 0} onClick={() => pickGender(0)}>
                   <User size={22} />
                   <span>Male</span>
                 </div>
-                <div class="cc-model" data-on={gender === 1} onClick={() => pickGender(1)}>
+                <div class="cc-model" role="button" data-on={gender === 1} onClick={() => pickGender(1)}>
                   <User size={22} />
                   <span>Female</span>
                 </div>

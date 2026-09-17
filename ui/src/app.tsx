@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'preact/hooks'
-import { Clock, MapPin, Play } from 'lucide-preact'
+import { Clock, MapPin, Play, ChevronLeft, ChevronRight } from 'lucide-preact'
 import { CharacterCreation } from './CharacterCreation'
+import { Cover, COVER_EXIT_MS } from './Cover'
+import { Cursor } from './components/Cursor'
 import './styles/spawn.css'
 
 interface SpawnPoint {
@@ -60,7 +62,18 @@ export function App() {
   // Set the moment Spawn is pressed and cleared when the menu is next shown, so
   // a second press cannot fire a second spawn while the fade is running.
   const [committing, setCommitting] = useState(false)
+  // Which spawn the pointer is over, if any. Held separately from `selected`
+  // so hovering can PREVIEW a destination without committing the camera or the
+  // index to it — moving the mouse across the track should not feel like it is
+  // pressing every button it passes.
+  const [peek, setPeek] = useState<number | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
+
+  // The cover's unmount is a timer, so it has to be cancellable: a `showCover`
+  // arriving while one is pending would otherwise be torn down mid-life by the
+  // previous exit finishing, and the screen it was put up to hide would be on
+  // display. Held in a ref rather than state — nothing renders from it.
+  const coverExit = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
@@ -78,12 +91,24 @@ export function App() {
       } else if (e.data.type === 'hide') {
         setView('none')
       } else if (e.data.type === 'showCover') {
+        if (coverExit.current) {
+          clearTimeout(coverExit.current)
+          coverExit.current = null
+        }
         setCoverFading(false)
         setCover(true)
       } else if (e.data.type === 'hideCover') {
-        // fade out, then unmount so the menu underneath is revealed
+        // Run the sliced sweep, then unmount so the menu underneath is
+        // revealed. COVER_EXIT_MS is owned by Cover.tsx — the panel stagger
+        // decides how long this takes, so unmounting on a number typed in here
+        // would cut the last panel off mid-sweep the first time anyone retimed
+        // the animation.
         setCoverFading(true)
-        setTimeout(() => setCover(false), 750)
+        if (coverExit.current) clearTimeout(coverExit.current)
+        coverExit.current = setTimeout(() => {
+          coverExit.current = null
+          setCover(false)
+        }, COVER_EXIT_MS)
       } else if (e.data.type === 'theme') {
         applyTheme(e.data.theme)
       }
@@ -92,16 +117,46 @@ export function App() {
     return () => window.removeEventListener('message', handler)
   }, [])
 
+  const move = (delta: number) => {
+    const len = Math.max(1, spawns.length)
+    setSelected(i => (i + delta + len) % len)
+  }
+
   useEffect(() => {
     if (view !== 'spawn') return
+
     const onKey = (e: KeyboardEvent) => {
-      const len = Math.max(1, spawns.length)
-      if (e.key === 'ArrowRight' || e.key === 'd') setSelected(i => (i + 1) % len)
-      else if (e.key === 'ArrowLeft' || e.key === 'a') setSelected(i => (i - 1 + len) % len)
+      if (e.key === 'ArrowRight' || e.key === 'd') move(1)
+      else if (e.key === 'ArrowLeft' || e.key === 'a') move(-1)
       else if (e.key === 'Enter') doStart()
     }
+
+    /*
+     * Wheel cycles the destination.
+     *
+     * It is on `window` rather than on .sm-root because the root is
+     * pointer-events: none — the shot underneath has to stay visible and
+     * un-grabbed — and an element that does not take pointer events does not
+     * get wheel events either. On this page nothing scrolls, so there is
+     * nothing for a window-level handler to steal.
+     *
+     * Rate-limited: a trackpad flick is dozens of events and would otherwise
+     * throw the camera through the whole list and back.
+     */
+    let lastWheel = 0
+    const onWheel = (e: WheelEvent) => {
+      const now = performance.now()
+      if (now - lastWheel < 180) return
+      lastWheel = now
+      move(e.deltaY > 0 || e.deltaX > 0 ? 1 : -1)
+    }
+
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('wheel', onWheel, { passive: true })
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('wheel', onWheel)
+    }
   }, [view, spawns, selected])
 
   useEffect(() => {
@@ -129,9 +184,31 @@ export function App() {
 
   const licenseClass = player.licenseClass || 'D'
 
+  /*
+   * Hovering the track PREVIEWS in the main readout rather than popping a
+   * tooltip over it.
+   *
+   * There is nowhere for a tooltip to live here: the destination block is
+   * pinned to the bottom letterbox with the name directly above the track and
+   * the bar directly below it, so a label either covers the name it is
+   * describing or hangs off the frame. Borrowing the readout costs no space,
+   * puts the answer where the eye already is, and makes the track legible
+   * without stepping the camera through every stop on the way to the one you
+   * actually wanted.
+   */
+  const previewing = peek !== null && peek !== selected && peek < spawns.length
+  const shown = previewing ? (peek as number) : selected
+
   return (
     <>
       {cover && <Cover fading={coverFading} />}
+
+      {/* Mounted for both menus, not just the spawn screen. The two are one
+          flow — creation hands straight over to spawn — and a pointer that
+          changes identity halfway through it reads as two different products.
+          It is suppressed while the cover is up and not yet leaving, where
+          there is nothing to point at. */}
+      <Cursor active={view !== 'none' && (!cover || coverFading)} />
 
       {view === 'creation' && (
         <CharacterCreation serverError={creationError} onClearError={() => setCreationError(null)} />
@@ -165,28 +242,67 @@ export function App() {
 
           <div class="sm-dest">
             <div class="sm-dest-main">
+              {/* The preview marker lives up here rather than inline with the
+                  name: anything added to that row re-flows it, and the next
+                  chevron jumping sideways every time the pointer crosses the
+                  track is exactly the kind of twitch that makes a menu feel
+                  cheap. This line is already its own row and has space to
+                  spare. */}
               <div class="sm-eyebrow" style={{ color: 'var(--gray-500)' }}>
                 <MapPin size={11} />
                 Deployment zone
+                {previewing && <span class="sm-peek-tag">preview</span>}
               </div>
 
-              {/* Keyed on the index so the name CUTS to the next one instead of
-                  cross-fading — matches the camera language and reads faster. */}
-              <div class="sm-dest-line" key={selected}>
-                <span class="sm-index">
-                  {String(selected + 1).padStart(2, '0')}
-                  <small>/{String(Math.max(spawns.length, 1)).padStart(2, '0')}</small>
-                </span>
-                <span class="sm-place">{spawns[selected]?.label || 'Unknown'}</span>
+              {/* The whole line is the control now, not just the thin track
+                  below it. Keyed on the index so the name CUTS to the next one
+                  instead of cross-fading — matches the camera language and
+                  reads faster. */}
+              <div class="sm-dest-line">
+                <button
+                  class="sm-nav"
+                  onClick={() => move(-1)}
+                  data-cursor-label="Prev"
+                  aria-label="Previous spawn point"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+
+                <div class={`sm-dest-name${previewing ? ' is-peek' : ''}`} key={selected}>
+                  <span class="sm-index">
+                    {String(shown + 1).padStart(2, '0')}
+                    <small>/{String(Math.max(spawns.length, 1)).padStart(2, '0')}</small>
+                  </span>
+                  <span class="sm-place">{spawns[shown]?.label || 'Unknown'}</span>
+                </div>
+
+                <button
+                  class="sm-nav"
+                  onClick={() => move(1)}
+                  data-cursor-label="Next"
+                  aria-label="Next spawn point"
+                >
+                  <ChevronRight size={20} />
+                </button>
               </div>
 
-              <div class="sm-track">
-                {spawns.map((_, i) => (
-                  <div
+              {/*
+                Each segment is a padded BUTTON wrapping a 3px bar. The bar is
+                the whole thing you can see, and a 3px-tall click target on a
+                moving camera shot is a target you miss — the hit area is sized
+                for a hand, the mark stays sized for the composition.
+              */}
+              <div class="sm-track" onMouseLeave={() => setPeek(null)}>
+                {spawns.map((s, i) => (
+                  <button
                     key={i}
-                    class={`sm-seg ${i === selected ? 'on' : ''}`}
+                    class={`sm-seg-hit${i === selected ? ' on' : ''}`}
                     onClick={() => setSelected(i)}
-                  />
+                    onMouseEnter={() => setPeek(i)}
+                    aria-label={s.label}
+                  >
+                    <i />
+                  </button>
                 ))}
               </div>
             </div>
@@ -196,10 +312,13 @@ export function App() {
                 class={`sm-go${committing ? ' is-committing' : ''}`}
                 onClick={doStart}
                 disabled={committing}
+                data-cursor-label={committing ? '' : 'Deploy'}
               >
                 {committing ? 'Spawning' : 'Spawn'}
                 <Play size={17} fill="currentColor" />
               </button>
+              {/* Both input schemes, because both now work: the mouse is no
+                  longer a second-class way to drive this screen. */}
               <div class="sm-keys">
                 <span class="sm-key">A</span>
                 <span class="sm-key">D</span>
@@ -207,6 +326,9 @@ export function App() {
                 <span class="sm-sep">·</span>
                 <span class="sm-key">↵</span>
                 confirm
+                <span class="sm-sep">·</span>
+                <span class="sm-key sm-key-wheel" aria-hidden="true" />
+                scroll
               </div>
             </div>
           </div>
@@ -215,122 +337,3 @@ export function App() {
     </>
   )
 }
-
-/* Full-screen branded cover — bridges the loading screen and the spawn menu so
-   the raw world streaming / ped placement is never visible. */
-function Cover({ fading }: { fading: boolean }) {
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 99999,
-        background:
-          'radial-gradient(130% 90% at 50% 0%, rgba(var(--color-primary-rgb), 0.12), transparent 55%), radial-gradient(100% 100% at 50% 120%, rgba(var(--color-primary-rgb), 0.06), transparent 60%), #08090b',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: fading ? 0 : 1,
-        transition: 'opacity 700ms ease',
-        pointerEvents: fading ? 'none' : 'auto',
-        fontFamily: "'Inter', sans-serif",
-      }}
-    >
-      <style>{`
-        @keyframes spzpulse{0%,100%{opacity:.85}50%{opacity:.35}}
-        @keyframes spzrise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-        @keyframes spzblob{0%,100%{border-radius:42% 58% 60% 40% / 45% 45% 55% 55%}25%{border-radius:60% 40% 45% 55% / 55% 60% 40% 45%}50%{border-radius:45% 55% 48% 52% / 60% 45% 55% 40%}75%{border-radius:55% 45% 55% 45% / 42% 55% 45% 58%}}
-        @keyframes spzblobspin{to{transform:rotate(360deg)}}
-        @keyframes spzglow{0%,100%{box-shadow:0 0 40px 6px rgba(var(--color-primary-rgb),0.45),inset 0 -8px 20px rgba(120,40,0,0.5)}50%{box-shadow:0 0 66px 16px rgba(var(--color-primary-rgb),0.72),inset 0 -8px 20px rgba(120,40,0,0.5)}}
-      `}</style>
-
-      {/* faint grid / scanline texture */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage:
-            'repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 3px)',
-          pointerEvents: 'none',
-        }}
-      />
-
-      {/* morphing blob loader */}
-      <div style={{ position: 'relative', width: '96px', height: '96px', marginBottom: '38px', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div
-          style={{
-            width: '82px',
-            height: '82px',
-            background: 'radial-gradient(circle at 34% 28%, #ffcf9c, var(--color-primary) 50%, #a63a00 100%)',
-            borderRadius: '42% 58% 60% 40% / 45% 45% 55% 55%',
-            animation: 'spzblob 6s ease-in-out infinite, spzblobspin 14s linear infinite, spzglow 2.4s ease-in-out infinite',
-          }}
-        />
-      </div>
-
-      {/* logo + tagline */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', animation: 'spzrise .5s ease', zIndex: 1 }}>
-        <img
-          src="logo.png"
-          alt="SPiceZ"
-          style={{ height: '58px', width: 'auto', filter: 'drop-shadow(0 8px 40px rgba(var(--color-primary-rgb), 0.3))' }}
-        />
-        <div
-          style={{
-            fontFamily: 'monospace',
-            fontSize: '10px',
-            letterSpacing: '0.42em',
-            textTransform: 'uppercase',
-            color: 'rgba(255,255,255,0.35)',
-          }}
-        >
-          Open-Source Racing Core
-        </div>
-      </div>
-
-      <div
-        style={{
-          marginTop: '34px',
-          fontFamily: 'monospace',
-          fontSize: '11px',
-          letterSpacing: '0.26em',
-          textTransform: 'uppercase',
-          color: 'rgba(255,255,255,0.42)',
-          animation: 'spzpulse 1.8s ease-in-out infinite',
-          zIndex: 1,
-        }}
-      >
-        Preparing your session
-      </div>
-
-      {/* bottom brand strip */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '28px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '9px',
-          zIndex: 1,
-        }}
-      >
-        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--color-primary)', boxShadow: '0 0 9px var(--color-primary)' }} />
-        <span
-          style={{
-            fontFamily: 'monospace',
-            fontSize: '9px',
-            letterSpacing: '0.3em',
-            textTransform: 'uppercase',
-            color: 'rgba(255,255,255,0.28)',
-          }}
-        >
-          SPiceZ-Core · FiveM
-        </span>
-      </div>
-    </div>
-  )
-}
-
