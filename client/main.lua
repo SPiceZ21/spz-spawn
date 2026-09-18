@@ -570,22 +570,48 @@ RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
     local x, y, z = coords.x, coords.y, coords.z
     SetFocusPosAndVel(x, y, z, 0.0, 0.0, 0.0)
 
+    -- Interiors (MLOs) stream separately from the terrain. If the spawn is
+    -- inside one, pin it and wait for it, or its floor has no collision yet and
+    -- the ped either falls through or the ground probe misses it entirely.
+    local interior = GetInteriorAtCoords(x, y, z)
+    if interior ~= 0 then
+        PinInteriorInMemory(interior)
+        local deadline = GetGameTimer() + 5000
+        while not IsInteriorReady(interior) and GetGameTimer() < deadline do
+            Wait(20)
+        end
+    end
+
+    -- The ground probe starts just ABOVE the configured point, not 50 m above.
+    --
+    -- It used to cast from z + 50, and GetGroundZ returns the FIRST surface it
+    -- meets on the way down — under a roof, that is the roof. Every spawn inside
+    -- an MLO put the player on top of the building. Starting 1.5 m up means the
+    -- first surface below is the floor the spawn was recorded on.
+    local PROBE_UP  = 1.5
+    -- A result further than this from the configured Z is a different surface
+    -- (a roof, an upper floor, a tunnel below) — ignore it and trust the config.
+    local MAX_DRIFT = 3.0
+
     local gok, groundZ = false, z
     local tries = 0
     while tries < 300 do   -- up to ~6s
         RequestCollisionAtCoord(x, y, z)
         SetEntityCoordsNoOffset(ped, x, y, z, false, false, false)
         FreezeEntityPosition(ped, true)
-        gok, groundZ = GetGroundZFor_3dCoord(x, y, z + 50.0, false)
+        gok, groundZ = GetGroundZFor_3dCoord(x, y, z + PROBE_UP, false)
         if gok and HasCollisionLoadedAroundEntity(ped) then break end
         Wait(20)
         tries = tries + 1
     end
     ClearFocus()
 
-    -- Land the ped exactly on the mesh surface (or, if the ground never
-    -- resolved, keep the config Z as a fallback).
-    if gok then z = groundZ + 1.0 end
+    -- Land the ped on the surface under the configured point. If the probe found
+    -- nothing, or something too far from where the spawn was recorded, keep the
+    -- config Z: the coordinates were captured standing there, so they are right.
+    if gok and math.abs(groundZ - z) <= MAX_DRIFT then
+        z = groundZ + 1.0
+    end
     SetEntityCoordsNoOffset(ped, x, y, z, false, false, false)
     SetEntityHeading(ped, heading)
     print(("^3[spz-spawn] collision tries=%d gok=%s groundZ=%.2f finalZ=%.2f^7")
