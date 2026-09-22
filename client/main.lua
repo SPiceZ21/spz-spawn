@@ -17,6 +17,36 @@ local isMenuOpen = false
 local cam        = nil
 local isNewCharacter = false
 
+-- ── Spawn state, published ───────────────────────────────────────────────────
+--
+-- Other resources need to know the player is still in front of the spawn menu,
+-- or has not spawned at all yet, so their own always-on HUDs stay out of the
+-- way: the passive race board (spz-spectate) and the chat log (spz-chat) both
+-- painted over the menu and over the moment the loading screen came down.
+--
+-- Client-local statebags (replicated = false): nothing on the server cares, and
+-- a bag lets those resources react to the change instead of polling an export.
+local function publishSpawnState()
+    LocalPlayer.state:set('spawnMenuOpen', isMenuOpen, false)
+    LocalPlayer.state:set('spawned',       isSpawned,  false)
+end
+
+local function setMenuOpen(v)
+    if isMenuOpen == v then return end
+    isMenuOpen = v
+    publishSpawnState()
+end
+
+local function setSpawned(v)
+    if isSpawned == v then return end
+    isSpawned = v
+    publishSpawnState()
+end
+
+-- Publish the pre-spawn values at start, so a resource that comes up and paints
+-- before the first spawn reads `spawned = false` rather than nil.
+CreateThread(publishSpawnState)
+
 -- forward declarations (defined in the camera section below)
 -- Forward declarations: these are defined further down but called by the
 -- handlers above them. A local referenced before its declaration resolves to a
@@ -81,7 +111,7 @@ RegisterNetEvent("SPZ:openCharacterCreation", function(route)
     -- AND the world is streamed; doing it here (as this used to) handed the
     -- player a frame or two of empty grey while the cover was still mounting.
     SendNUIMessage({ type = "showCover" })
-    isMenuOpen     = true
+    setMenuOpen(true)
     isNewCharacter = true
 
     -- Place the ped at the fixed preview scene so the UI has a real backdrop
@@ -514,7 +544,7 @@ RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
 
     SendNUIMessage({ type = 'hide' })
     SetNuiFocus(false, false)
-    isMenuOpen = false
+    setMenuOpen(false)
     DestroyCinematicCamera()
     FreezeEntityPosition(PlayerPedId(), false)
     DisplayHud(true)
@@ -560,7 +590,7 @@ RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
     ClearPedBloodDamage(ped)
     RemoveAllPedWeapons(ped, true)
 
-    isSpawned = true
+    setSpawned(true)
 
     -- Force-stream the world under the spawn. The reliable signal that the
     -- terrain is actually loaded is that GetGroundZ SUCCEEDS — HasCollisionLoaded
@@ -652,7 +682,7 @@ RegisterNetEvent("SPZ:showPlayMenu", function(playerData)
     if isSpawned or isMenuOpen then return end
 
     print("^2[spz-spawn] Showing play menu^7")
-    isMenuOpen = true
+    setMenuOpen(true)
 
     SendNUIMessage({ type = "showCover" })   -- cover the streaming behind the menu
 
@@ -917,7 +947,7 @@ RegisterNetEvent("SPZ:characterCreateCompleted", function(success, message)
     SendNUIMessage({ type = "hide" })
     DestroyCinematicCamera()
 
-    isMenuOpen     = false
+    setMenuOpen(false)
     isNewCharacter = false
 
     print("^2[spz-spawn] Creation complete — asking for a route^7")
@@ -972,14 +1002,14 @@ RegisterNetEvent("SPZ:teleportTo", function(coords, heading)
 end)
 
 RegisterCommand("testspawn", function()
-    isSpawned = false
-    isMenuOpen = false
+    setSpawned(false)
+    setMenuOpen(false)
     TriggerEvent("SPZ:showPlayMenu", { name = "Tester", rank = "Developer", tier = 3, gender = 0 })
 end, false)
 
 RegisterCommand("testcreation", function()
-    isSpawned = false
-    isMenuOpen = false
+    setSpawned(false)
+    setMenuOpen(false)
     TriggerEvent("SPZ:openCharacterCreation")
 end, false)
 
