@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'preact/hooks'
-import { User, Check, AlertCircle, Flag, Hash, Search, ChevronDown, ArrowRight, Info } from 'lucide-preact'
+import { User, Check, AlertCircle, Flag, Hash, Search, ChevronDown, ArrowRight, Info, RectangleHorizontal } from 'lucide-preact'
 import './styles/creation.css'
 
 /*
  * Character creation, in two acts.
  *
  * Act one builds the racer: pick a base model, then open the full appearance
- * editor. Act two names them: alias, nation, race number.
+ * editor. Act two names them: alias, nation, race number and plate.
  *
  * That order is deliberate. Naming something you cannot see is an abstract
  * form; naming a racer standing in front of you is a decision. The ped is live
@@ -160,6 +160,7 @@ export function CharacterCreation(
   const [name, setName] = useState('')
   const [nation, setNation] = useState('')
   const [raceNumber, setRaceNumber] = useState('')
+  const [plate, setPlate] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [paused, setPaused] = useState(false)   // appearance editor has the screen
 
@@ -202,7 +203,13 @@ export function CharacterCreation(
   const isValidName = /^[a-zA-Z0-9_]{3,16}$/.test(name)
   const numValue = parseInt(raceNumber, 10)
   const isValidNumber = !isNaN(numValue) && numValue >= 1 && numValue <= 999
-  const canSubmit = isValidName && nation !== '' && isValidNumber && !submitting
+
+  // Optional on purpose: a blank plate is a valid answer and the car keeps
+  // whatever the game gives it. Only a NON-empty plate can be wrong, so an
+  // empty box must never block the form.
+  const plateTrimmed = plate.trim()
+  const isValidPlate = plateTrimmed === '' || /^[A-Z0-9 ]{1,8}$/.test(plateTrimmed)
+  const canSubmit = isValidName && nation !== '' && isValidNumber && isValidPlate && !submitting
 
   // Name the single thing standing in the way, in the order the form asks for
   // it. A greyed-out button that will not say why is the worst version of this.
@@ -212,13 +219,15 @@ export function CharacterCreation(
     ? 'Pick the nation you race under'
     : !isValidNumber
     ? 'Pick a race number from 1 to 999'
+    : !isValidPlate
+    ? 'Plate: up to 8 letters, numbers or spaces'
     : null
 
   const submit = () => {
     if (!canSubmit) return
     setSubmitting(true)
     onClearError()
-    post('submitCharacterCreation', { name, gender, nation, raceNumber: numValue })
+    post('submitCharacterCreation', { name, gender, nation, raceNumber: numValue, plate: plateTrimmed })
   }
 
   // Stays mounted while the editor is up so nothing chosen so far is lost.
@@ -354,6 +363,36 @@ export function CharacterCreation(
                 </div>
               </div>
               <div class="cc-hint">Yours alone — numbers already taken are rejected on save.</div>
+            </div>
+
+            <div class="cc-field" data-done={plateTrimmed !== '' && isValidPlate}>
+              <div class="cc-label">
+                <span class="cc-step">{plateTrimmed !== '' && isValidPlate ? <Check size={10} /> : '4'}</span>
+                Number plate
+                <span class="cc-count">{plateTrimmed.length}/8</span>
+              </div>
+              <div class="cc-plate-row">
+                <div class="cc-plate" data-on={plateTrimmed !== '' && isValidPlate}>
+                  <b>{plateTrimmed || 'PLATE'}</b>
+                </div>
+                <div class={`cc-control ${!isValidPlate ? 'is-bad' : ''}`}>
+                  <span class="cc-lead">
+                    <RectangleHorizontal size={16} color={plateTrimmed !== '' && isValidPlate ? 'var(--color-primary)' : undefined} />
+                  </span>
+                  <input
+                    value={plate}
+                    onInput={(e) => setPlate(
+                      (e.target as HTMLInputElement).value.toUpperCase().replace(/[^A-Z0-9 ]/g, '').slice(0, 8)
+                    )}
+                    placeholder="Optional"
+                    maxLength={8}
+                    spellcheck={false}
+                  />
+                </div>
+              </div>
+              <div class="cc-hint">
+                Goes on every car you spawn. Leave blank to keep the default. Change it later with /plate.
+              </div>
             </div>
 
             {/* The artefact, not the form: exactly how the three answers combine

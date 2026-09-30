@@ -927,7 +927,7 @@ end)
 
 RegisterNUICallback('submitCharacterCreation', function(data, cb)
     pendingGender = tonumber(data.gender) or 0
-    TriggerServerEvent("SPZ:characterCreated", data.gender, data.name, data.nation, data.raceNumber)
+    TriggerServerEvent("SPZ:characterCreated", data.gender, data.name, data.nation, data.raceNumber, data.plate)
     cb('ok')
 end)
 
