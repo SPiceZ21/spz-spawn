@@ -993,24 +993,4 @@ AddEventHandler("SPZ:appearanceCustomizationDone", function()
     end)
 end)
 
--- ── Utilities ─────────────────────────────────────────────────────────────────
-
-RegisterNetEvent("SPZ:teleportTo", function(coords, heading)
-    local ped = PlayerPedId()
-    SetEntityCoords(ped, coords.x, coords.y, coords.z, false, false, false, true)
-    if heading then SetEntityHeading(ped, heading) end
-end)
-
-RegisterCommand("testspawn", function()
-    setSpawned(false)
-    setMenuOpen(false)
-    TriggerEvent("SPZ:showPlayMenu", { name = "Tester", rank = "Developer", tier = 3, gender = 0 })
-end, false)
-
-RegisterCommand("testcreation", function()
-    setSpawned(false)
-    setMenuOpen(false)
-    TriggerEvent("SPZ:openCharacterCreation")
-end, false)
-
 print("^2[spz-spawn] Client initialized^7")

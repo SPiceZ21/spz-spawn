@@ -163,14 +163,6 @@ RegisterNetEvent("SPZ:requestSpawn", function(spawnIndex)
     SpawnPlayer(src, profile, spawnIndex)
 end)
 
---- Generic respawn request.
-RegisterNetEvent("SPZ:requestRespawn", function()
-    local src     = source
-    local profile = exports['spz-identity']:GetProfile(src)
-    if not profile then return end
-    SpawnPlayer(src, profile)
-end)
-
 -- ── Post-creation ─────────────────────────────────────────────────────────────
 --
 -- Character creation flips first_time to 0, which changes the answer this
