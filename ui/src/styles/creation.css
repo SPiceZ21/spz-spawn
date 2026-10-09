@@ -434,6 +434,27 @@
   text-shadow: 0 0 22px rgba(var(--color-primary-rgb), 0.55);
 }
 
+/* Number plate row: the real plate texture (2:1) needs a wider preview than
+   the race-number badge, or an 8-character plate is clipped. */
+.cc-plate-row.is-plate {
+  grid-template-columns: 184px 1fr;   /* 184 x 92: readable at a glance */
+  align-items: center;
+}
+.cc-plate.is-texture {
+  background: none;
+  box-shadow: none;
+  border-radius: 4px;
+}
+.cc-plate.is-texture[data-on='true'] { box-shadow: 0 0 0 1px rgba(var(--color-primary-rgb), 0.6); }
+.cc-plate-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 1;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
 /* ── Identity strip ───────────────────────────────────────────────────── */
 /*
  * Exactly how the four answers combine on a nametag and in the standings. The
@@ -641,6 +662,7 @@
   .cc-title { font-size: 30px; }
   .cc-sub { display: none; }
   .cc-control { height: 44px; }
+  .cc-plate-row.is-plate { grid-template-columns: 152px 1fr; }
   .cc-model { height: 78px; }
   .cc-go { height: 46px; }
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'preact/hooks'
 import { User, Check, AlertCircle, Flag, Hash, Search, ChevronDown, ArrowRight, Info, RectangleHorizontal } from 'lucide-preact'
+import { PlatePreview } from './components/PlatePreview'
 import './styles/creation.css'
 
 /*
@@ -356,7 +357,12 @@ export function CharacterCreation(
                   <input
                     inputMode="numeric"
                     value={raceNumber}
-                    onInput={(e) => setRaceNumber((e.target as HTMLInputElement).value.replace(/\D/g, '').slice(0, 3))}
+                    onInput={(e) => {
+                      const el = e.target as HTMLInputElement
+                      const v = el.value.replace(/\D/g, '').slice(0, 3)
+                      el.value = v   // keep a rejected key out of the box (state may not change)
+                      setRaceNumber(v)
+                    }}
                     placeholder="1 – 999"
                     maxLength={3}
                   />
@@ -371,9 +377,9 @@ export function CharacterCreation(
                 Number plate
                 <span class="cc-count">{plateTrimmed.length}/8</span>
               </div>
-              <div class="cc-plate-row">
-                <div class="cc-plate" data-on={plateTrimmed !== '' && isValidPlate}>
-                  <b>{plateTrimmed || 'PLATE'}</b>
+              <div class="cc-plate-row is-plate">
+                <div class="cc-plate is-texture" data-on={plateTrimmed !== '' && isValidPlate}>
+                  <PlatePreview text={plateTrimmed} />
                 </div>
                 <div class={`cc-control ${!isValidPlate ? 'is-bad' : ''}`}>
                   <span class="cc-lead">
@@ -381,9 +387,17 @@ export function CharacterCreation(
                   </span>
                   <input
                     value={plate}
-                    onInput={(e) => setPlate(
-                      (e.target as HTMLInputElement).value.toUpperCase().replace(/[^A-Z0-9 ]/g, '').slice(0, 8)
-                    )}
+                    onInput={(e) => {
+                      const el = e.target as HTMLInputElement
+                      const caret = el.selectionStart ?? el.value.length
+                      const before = el.value.length
+                      const v = el.value.toUpperCase().replace(/[^A-Z0-9 ]/g, '').slice(0, 8)
+                      el.value = v
+                      // Uppercasing / dropping a character must not throw the caret to the end.
+                      const pos = Math.max(0, caret - (before - v.length))
+                      el.setSelectionRange(pos, pos)
+                      setPlate(v)
+                    }}
                     placeholder="Optional"
                     maxLength={8}
                     spellcheck={false}
