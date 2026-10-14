@@ -836,6 +836,66 @@ local pendingGender = 0
 --- rather than only in a label. Runs during creation only — the ped is frozen
 --- at the preview scene with a scripted camera on it, so a model swap here is
 --- safe in a way it would not be out in the world.
+-- ── Default look ──────────────────────────────────────────────────────────────
+--
+-- A bare freemode ped (SetPedDefaultComponentVariation only) has no parents
+-- blended in: grey half-formed face, buzz cut, no eyebrows. Every framework that
+-- "looks good" (QBCore's qb-clothing / illenium-appearance) gives a new character
+-- a finished default instead. Same here, randomised per character, then the
+-- player tweaks it in fivem-appearance, which reads these values straight off
+-- the ped and saves them in its own format.
+--
+-- Head blend: GTA builds the face from three "parent" heads. Shape and skin are
+-- mixed separately: shapeMix 0 = all mother, 1 = all father (same for skin).
+-- Faces 0-20 are male parents, 21-41 female, 42-45 special; the third parent is
+-- left at 0 with no weight.
+local LOOK = {
+    [0] = {   -- male
+        hair = { 1, 2, 3, 4, 5, 10, 11, 15, 17, 19 },
+        shape = { 0.65, 0.95 }, skin = { 0.45, 0.85 },
+        brows = { 1, 2, 3, 6, 12, 18 }, browOpacity = 0.9,
+        beards = { 1, 3, 4, 10, 11, 18 }, beardChance = 0.5,
+    },
+    [1] = {   -- female
+        hair = { 1, 2, 3, 4, 7, 9, 10, 11, 14, 15 },
+        shape = { 0.05, 0.35 }, skin = { 0.15, 0.55 },
+        brows = { 1, 3, 5, 7, 9, 13 }, browOpacity = 0.75,
+        blush = { 0, 1, 2, 5 }, lipstick = { 0, 1, 2, 3 },
+    },
+}
+local HAIR_COLOURS = { 0, 1, 2, 3, 4, 5, 12, 13, 14, 17, 18, 29 }   -- natural browns / blacks / blondes
+local EYE_COLOURS  = { 0, 1, 2, 3, 4, 5, 6, 7 }                      -- natural (8+ are fantasy)
+
+local function pick(t) return t[math.random(#t)] end
+local function between(r) return r[1] + math.random() * (r[2] - r[1]) end
+
+local function ApplyDefaultLook(ped, gender)
+    local L = LOOK[gender == 1 and 1 or 0]
+    local mum, dad = math.random(21, 41), math.random(0, 20)
+    SetPedHeadBlendData(ped, mum, dad, 0, mum, dad, 0, between(L.shape), between(L.skin), 0.0, false)
+
+    -- small face-shape variation so no two defaults look cloned (20 features, -1..1)
+    for i = 0, 19 do SetPedFaceFeature(ped, i, (math.random() - 0.5) * 0.3) end
+
+    local hairCol = pick(HAIR_COLOURS)
+    SetPedComponentVariation(ped, 2, pick(L.hair), 0, 0)
+    SetPedHairColor(ped, hairCol, hairCol)
+
+    SetPedHeadOverlay(ped, 2, pick(L.brows), L.browOpacity)          -- eyebrows
+    SetPedHeadOverlayColor(ped, 2, 1, hairCol, hairCol)
+    if L.beards and math.random() < L.beardChance then
+        SetPedHeadOverlay(ped, 1, pick(L.beards), 0.85)               -- facial hair
+        SetPedHeadOverlayColor(ped, 1, 1, hairCol, hairCol)
+    end
+    if L.blush then
+        SetPedHeadOverlay(ped, 5, pick(L.blush), 0.35)                -- blush
+        SetPedHeadOverlayColor(ped, 5, 2, 6, 6)
+        SetPedHeadOverlay(ped, 8, pick(L.lipstick), 0.45)             -- lipstick
+        SetPedHeadOverlayColor(ped, 8, 2, 1, 1)
+    end
+    SetPedEyeColor(ped, pick(EYE_COLOURS))
+end
+
 ApplyPreviewModel = function(gender)
     local modelHash = gender == 1 and 'mp_f_freemode_01' or 'mp_m_freemode_01'
 
@@ -871,6 +931,7 @@ ApplyPreviewModel = function(gender)
     -- because the swap drops it at its spawn position.
     local ped = PlayerPedId()
     SetPedDefaultComponentVariation(ped)
+    ApplyDefaultLook(ped, gender)
     SetEntityVisible(ped, true, false)
     SetEntityInvincible(ped, true)
 
