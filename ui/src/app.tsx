@@ -322,6 +322,9 @@ export function App() {
               <div class="sm-keys">
                 <span class="sm-key">A</span>
                 <span class="sm-key">D</span>
+                <span class="sm-or">or</span>
+                <span class="sm-key">←</span>
+                <span class="sm-key">→</span>
                 navigate
                 <span class="sm-sep">·</span>
                 <span class="sm-key">↵</span>
