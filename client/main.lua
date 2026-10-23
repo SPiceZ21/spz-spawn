@@ -651,7 +651,7 @@ RegisterNetEvent("SPZ:spawnPlayerTarget", function(data)
     TriggerEvent("SPZ:applyOutfit")
 
     CreateThread(function()
-        Wait(600)
+        Wait(1600)   -- land settles (600 ms) + held still for 1 s at the hub
         local p = PlayerPedId()
         SetLocalPlayerAsGhost(false)
         SetEntityCollision(p, true, true)
