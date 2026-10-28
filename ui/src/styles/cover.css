@@ -44,8 +44,8 @@
 
 /* ── Slices ────────────────────────────────────────────────────────────── */
 /*
- * Each panel paints the SAME artwork, sized to the viewport and pushed left by
- * its own offset (--bgx), so every layer — mesh and both dot grids — runs
+ * Each panel paints the SAME artwork, sized to the viewport and pushed up by
+ * its own offset (--bgy), so every layer — mesh and both dot grids — runs
  * continuously across the seams. Because the background is clipped to the
  * panel, the eight of them together cost about one screen to paint, not eight.
  *
@@ -58,10 +58,10 @@
 
 .cv-slice {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: calc(var(--i) * (100% / 8));
-  width: calc(100% / 8 + 0.5px);   /* hairline overlap: no seam at fractional DPI */
+  left: 0;
+  right: 0;
+  top: calc(var(--i) * (100% / 8));
+  height: calc(100% / 8 + 0.5px);  /* hairline overlap: no seam at fractional DPI */
 
   background-image:
     /* The FINE screen is texture, not the effect — a whisper of tooth over the
@@ -104,10 +104,10 @@
    * this reading as a printed screen and reading as graph paper.
    */
   background-position:
-    var(--bgx) 0,
-    var(--bgx) 0,
-    calc(var(--bgx) + 8px) 8px,
-    var(--bgx) 0, var(--bgx) 0, var(--bgx) 0, var(--bgx) 0, var(--bgx) 0, var(--bgx) 0;
+    0 var(--bgy),
+    0 var(--bgy),
+    8px calc(var(--bgy) + 8px),
+    0 var(--bgy), 0 var(--bgy), 0 var(--bgy), 0 var(--bgy), 0 var(--bgy), 0 var(--bgy);
   background-repeat:
     repeat, repeat, repeat,
     no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
@@ -151,8 +151,9 @@
   box-shadow: 0 0 14px 2px rgba(var(--color-primary-rgb), 0.6);
 }
 
-.cv-slice:nth-child(-n + 4)::after { right: 0; }
-.cv-slice:nth-child(n + 5)::after  { left: 0; }
+/* On the trailing side, facing the gap that opens behind the strip. */
+.cv-slice:nth-child(odd)::after  { right: 0; }   /* slides left */
+.cv-slice:nth-child(even)::after { left: 0; }    /* slides right */
 
 .cv-stage.is-sweeping .cv-slice::after {
   opacity: 1;

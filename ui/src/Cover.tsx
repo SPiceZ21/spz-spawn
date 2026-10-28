@@ -40,7 +40,7 @@ import './styles/cover.css'
  *
  * The slices are not separate copies of the artwork. Each one carries the same
  * background stack sized to the VIEWPORT and offset by its own position
- * (`--bgx`), so the mesh and the dot grid run continuously across all eight
+ * (`--bgy`), so the mesh and the dot grid run continuously across all eight
  * seams while the browser still only paints each slice's own area — the whole
  * stage costs about one screen, not eight.
  */
@@ -65,27 +65,18 @@ export function Cover({ fading }: { fading: boolean }) {
     <div class={`cv-root${fading ? ' is-out' : ''}`}>
       <div class={`cv-stage${sweeping ? ' is-sweeping' : ''}`}>
         {Array.from({ length: SLICES }, (_, i) => {
-          // Outside-in: the edge panels leave first and the ones behind them
-          // follow, so the gaps open between neighbours and widen inward.
-          //
-          // Every panel travels the SAME distance over the SAME duration and is
-          // separated only by its delay. That is not a stylistic choice, it is
-          // the thing that makes the sweep work: give them distances matched to
-          // how far each has to go and the inner panels — which have further to
-          // travel — move faster, catch the outer ones and slide over the top
-          // of them, and the frame tears open in the middle instead of at the
-          // edges. Identical motion curves offset in time cannot overtake.
-          const left = i < SLICES / 2
-          const order = left ? i : SLICES - 1 - i
+          // Horizontal strips, alternating: even rows slide out left, odd rows
+          // right, staggered top to bottom so the frame unzips down the screen.
+          const dir = i % 2 === 0 ? -1 : 1
           return (
             <div
               key={i}
               class="cv-slice"
               style={{
                 '--i': i,
-                '--bgx': `calc(${-i} * (100vw / ${SLICES}))`,
-                '--dir': left ? -1 : 1,
-                '--delay': `${order * 70}ms`,
+                '--bgy': `calc(${-i} * (100vh / ${SLICES}))`,
+                '--dir': dir,
+                '--delay': `${i * 55}ms`,
               }}
             />
           )
