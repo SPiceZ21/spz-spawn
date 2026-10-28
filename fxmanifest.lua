@@ -3,7 +3,7 @@ game 'gta5'
 
 name 'spz-spawn'
 description 'SPiceZ-Core â€” Standalone Spawning Manager'
-version '1.9.0'
+version '1.9.1'
 author 'SPiceZ-Core'
 
 ui_page 'ui/dist/index.html'
