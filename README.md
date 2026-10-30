@@ -1,64 +1,46 @@
 # spz-spawn
 
-> Play menu, spawn points, world entry · `v2.1.0`
+> Spawn flow: character creation, play menu and cinematic world entry.
+
+![version](https://img.shields.io/badge/version-1.9.1-ff6200) ![SPiceZ-Core](https://img.shields.io/badge/SPiceZ--Core-beta-18181b)
 
 ## Overview
 
-`spz-spawn` takes the player from the loading screen into the world. Returning players get
-a cinematic play menu with their stats and a spawn-point picker; first-time players go
-through `spz-identity` character creation first and only see the menu once the profile is
-complete.
+Takes the player from the loading screen to the world: new players go through character creation (fivem-appearance), everyone lands on the play menu, and the entry is covered by a transition so the world never pops in.
 
-## Structure
+## Features
 
-| Side | File | Purpose |
-|---|---|---|
-| Shared | `@spz-core/config.lua` | Imported core configuration |
-| Shared | `config.lua` | Spawn points and menu options |
-| Client | `client/main.lua` | NUI bridge, camera, model set, teleport |
-| Server | `server/main.lua` | Spawn authority, profile gating |
+- First-join character creation
+- Play menu with cinematic camera
+- Loading-screen progress stages (with spz-loading)
+- Transition cover over every spawn
 
-## First-time handling
+## Requirements
 
-- **Server** — ignores play-menu requests while `profile.first_time == 1`.
-- **Client** — shuts the loading screen down, fades the world in, waits for
-  `SPZ:characterReady`, then requests the menu.
-
-## Events
-
-| Event | Purpose |
+| Resource | Type |
 |---|---|
-| `SPZ:showPlayMenu` | Open the menu with player metadata |
-| `SPZ:spawnPlayerTarget` | Perform the physical spawn (model, teleport, resurrect) |
+| `spawnmanager` | third-party |
+| `ox_lib` | third-party |
+| `spz-core` | SPiceZ module |
+| `spz-identity` | SPiceZ module |
 
-```lua
-TriggerEvent('SPZ:showPlayMenu', { name = 'RacerX', rank = 'C-5', tier = 0, gender = 0 })
+## Installation
+
+Included in the [txAdmin recipe](https://github.com/SPiceZ21/spz-txrecipe). Manual install:
+
+1. Download `spz-spawn` from GitHub (latest release, or the repository) into your `resources` folder.
+2. Add to `server.cfg`, after its requirements:
+
+```cfg
+ensure spz-spawn
 ```
 
 ## Configuration
 
-```lua
-Config.Spawns = {
-    [1] = { label = 'Safe Zone', coords = vector4(x, y, z, w) },
-}
-```
+- `config.lua`
 
-## NUI
-
-Vite · Preact · TypeScript on the [spz-ui](../spz-ui/README.md) component set.
-
-```bash
-cd ui && npm install && npm run build   # → ui/dist/index.html
-```
-
-## Commands
-
-`/testspawn` · `/testcreation` (development helpers)
-
-## Dependencies
-
-`spawnmanager` · `ox_lib` · `spz-core` · `spz-identity`
+See the file for every option.
 
 ---
 
-Part of [SPiceZ-Core](../README.md) · GPL-3.0
+Part of **SPiceZ-Core** — [documentation](https://github.com/SPiceZ21/Docs) · [all modules](https://github.com/SPiceZ21/Docs/blob/main/modules/README.md)
