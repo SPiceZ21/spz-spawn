@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'preact/hooks'
-import { Clock, MapPin, Play, ChevronLeft, ChevronRight } from 'lucide-preact'
+import { Clock, MapPin } from 'lucide-preact'
 import { CharacterCreation } from './CharacterCreation'
 import { Cover, COVER_EXIT_MS } from './Cover'
 import { Cursor } from './components/Cursor'
@@ -53,6 +53,9 @@ function applyTheme(theme?: Record<string, string>) {
 
 export function App() {
   const [view, setView] = useState<'none' | 'spawn' | 'creation'>('none')
+  // The spawn view is two screens: a welcome, then the showcase where the
+  // destination is picked. Enter (or a click) moves on; Backspace goes back.
+  const [stage, setStage] = useState<'welcome' | 'showcase'>('welcome')
   const [player, setPlayer] = useState<PlayerData>({})
   const [spawns, setSpawns] = useState<SpawnPoint[]>([])
   const [selected, setSelected] = useState(0)
@@ -62,12 +65,6 @@ export function App() {
   // Set the moment Spawn is pressed and cleared when the menu is next shown, so
   // a second press cannot fire a second spawn while the fade is running.
   const [committing, setCommitting] = useState(false)
-  // Which spawn the pointer is over, if any. Held separately from `selected`
-  // so hovering can PREVIEW a destination without committing the camera or the
-  // index to it — moving the mouse across the track should not feel like it is
-  // pressing every button it passes.
-  const [peek, setPeek] = useState<number | null>(null)
-  const listRef = useRef<HTMLDivElement>(null)
 
   // The cover's unmount is a timer, so it has to be cancellable: a `showCover`
   // arriving while one is pending would otherwise be torn down mid-life by the
@@ -82,6 +79,7 @@ export function App() {
         setSpawns(e.data.spawns || [])
         setSelected(0)
         setCommitting(false)
+        setStage('welcome')
         setView('spawn')
       } else if (e.data.type === 'showCharacterCreation') {
         setCreationError(null)
@@ -126,25 +124,23 @@ export function App() {
     if (view !== 'spawn') return
 
     const onKey = (e: KeyboardEvent) => {
+      if (stage === 'welcome') {
+        if (e.key === 'Enter' || e.key === ' ') setStage('showcase')
+        return
+      }
       if (e.key === 'ArrowRight' || e.key === 'd') move(1)
       else if (e.key === 'ArrowLeft' || e.key === 'a') move(-1)
       else if (e.key === 'Enter') doStart()
+      else if (e.key === 'Backspace' && !committing) setStage('welcome')
     }
 
-    /*
-     * Wheel cycles the destination.
-     *
-     * It is on `window` rather than on .sm-root because the root is
-     * pointer-events: none — the shot underneath has to stay visible and
-     * un-grabbed — and an element that does not take pointer events does not
-     * get wheel events either. On this page nothing scrolls, so there is
-     * nothing for a window-level handler to steal.
-     *
-     * Rate-limited: a trackpad flick is dozens of events and would otherwise
-     * throw the camera through the whole list and back.
-     */
+    // Wheel cycles the destination on the showcase. On `window`: the root is
+    // pointer-events: none so the shot stays visible and un-grabbed, and such an
+    // element gets no wheel events. Rate-limited: a trackpad flick is dozens of
+    // events and would otherwise spin through the whole list.
     let lastWheel = 0
     const onWheel = (e: WheelEvent) => {
+      if (stage !== 'showcase') return
       const now = performance.now()
       if (now - lastWheel < 180) return
       lastWheel = now
@@ -157,11 +153,7 @@ export function App() {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('wheel', onWheel)
     }
-  }, [view, spawns, selected])
-
-  useEffect(() => {
-    listRef.current?.querySelector('.active')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  }, [selected])
+  }, [view, stage, spawns, selected, committing])
 
   /*
    * Commit, but do NOT tear the menu down here.
@@ -183,21 +175,7 @@ export function App() {
   }
 
   const licenseClass = player.licenseClass || 'D'
-
-  /*
-   * Hovering the track PREVIEWS in the main readout rather than popping a
-   * tooltip over it.
-   *
-   * There is nowhere for a tooltip to live here: the destination block is
-   * pinned to the bottom letterbox with the name directly above the track and
-   * the bar directly below it, so a label either covers the name it is
-   * describing or hangs off the frame. Borrowing the readout costs no space,
-   * puts the answer where the eye already is, and makes the track legible
-   * without stepping the camera through every stop on the way to the one you
-   * actually wanted.
-   */
-  const previewing = peek !== null && peek !== selected && peek < spawns.length
-  const shown = previewing ? (peek as number) : selected
+  const name = player.name || 'Racer'
 
   return (
     <>
@@ -215,123 +193,55 @@ export function App() {
       )}
 
       {view === 'spawn' && (
-        <div class="sm-root">
-          {/* Letterbox. Slides in from off-frame and crops the shot; every
-              element below is anchored to these edges. */}
-          <div class="sm-bar top" />
-          <div class="sm-bar bottom" />
-          <div class="sm-vignette" />
+        <div class="sp-root" data-stage={stage}>
+          <div class="sp-shade" />
 
-          <div class="sm-driver">
-            <div class="sm-avatar">
-              <img src={player.avatar || 'https://i.imgur.com/8NzA8m8.png'} alt="" />
-            </div>
-            <div class="sm-driver-text">
-              <div class="sm-eyebrow"><i />{player.stateText || 'IDLE'}</div>
-              <div class="sm-name">
-                {player.name || 'Racer'}
-                <span class="sm-chip">{licenseClass} Class</span>
-                {player.crew && <span class="sm-chip muted">{player.crew}</span>}
-              </div>
-              <div class="sm-meta">
-                <Clock size={11} color="var(--gray-600)" />
-                {formatPlaytime(player.playtime || 0)}
-              </div>
-            </div>
+          {/* ── 1. Welcome ── */}
+          <div class="sp-welcome" onClick={() => setStage('showcase')} data-cursor-label="Continue">
+            <img class="sp-logo" src="logo.png" alt="" />
+            <div class="sp-hello">Hello, <span>{name}</span></div>
+            <div class="sp-prompt">Press <kbd>Enter</kbd> to continue</div>
           </div>
 
-          <div class="sm-dest">
-            <div class="sm-dest-main">
-              {/* The preview marker lives up here rather than inline with the
-                  name: anything added to that row re-flows it, and the next
-                  chevron jumping sideways every time the pointer crosses the
-                  track is exactly the kind of twitch that makes a menu feel
-                  cheap. This line is already its own row and has space to
-                  spare. */}
-              <div class="sm-eyebrow" style={{ color: 'var(--gray-500)' }}>
-                <MapPin size={11} />
-                Deployment zone
-                {previewing && <span class="sm-peek-tag">preview</span>}
+          {/* ── 2. Showcase ── */}
+          <div class="sp-show">
+            <div class="sp-top">
+              <span class="sp-state"><i />{player.stateText || 'Idle'}</span>
+              <span class="sp-time"><Clock size={12} />{formatPlaytime(player.playtime || 0)}</span>
+            </div>
+
+            <div class="sp-id">
+              <div class="sp-name">{name}</div>
+              <div class="sp-sub">
+                <b>{licenseClass}</b> Class
+                {player.crew && <span class="sp-crew">{player.crew}</span>}
               </div>
-
-              {/* The whole line is the control now, not just the thin track
-                  below it. Keyed on the index so the name CUTS to the next one
-                  instead of cross-fading — matches the camera language and
-                  reads faster. */}
-              <div class="sm-dest-line">
-                <button
-                  class="sm-nav"
-                  onClick={() => move(-1)}
-                  data-cursor-label="Prev"
-                  aria-label="Previous spawn point"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-
-                <div class={`sm-dest-name${previewing ? ' is-peek' : ''}`} key={selected}>
-                  <span class="sm-index">
-                    {String(shown + 1).padStart(2, '0')}
-                    <small>/{String(Math.max(spawns.length, 1)).padStart(2, '0')}</small>
-                  </span>
-                  <span class="sm-place">{spawns[shown]?.label || 'Unknown'}</span>
-                </div>
-
-                <button
-                  class="sm-nav"
-                  onClick={() => move(1)}
-                  data-cursor-label="Next"
-                  aria-label="Next spawn point"
-                >
-                  <ChevronRight size={20} />
-                </button>
+              {/* Keyed on the index so the place CUTS to the next one. */}
+              <div class="sp-dest" key={selected}>
+                <MapPin size={13} />
+                <span>{spawns[selected]?.label || 'Unknown'}</span>
               </div>
+            </div>
 
-              {/*
-                Each segment is a padded BUTTON wrapping a 3px bar. The bar is
-                the whole thing you can see, and a 3px-tall click target on a
-                moving camera shot is a target you miss — the hit area is sized
-                for a hand, the mark stays sized for the composition.
-              */}
-              <div class="sm-track" onMouseLeave={() => setPeek(null)}>
+            <div class="sp-bottom">
+              <div class="sp-hint">
+                Press <kbd>Enter</kbd> to spawn · <kbd>A</kbd><kbd>D</kbd> location · <kbd>Bksp</kbd> back
+              </div>
+              <button class="sp-go" onClick={doStart} disabled={committing} data-cursor-label={committing ? '' : 'Deploy'}>
+                {committing ? 'Spawning' : 'Spawn'}
+              </button>
+              <div class="sp-slots">
                 {spawns.map((s, i) => (
                   <button
                     key={i}
-                    class={`sm-seg-hit${i === selected ? ' on' : ''}`}
+                    class={`sp-slot${i === selected ? ' on' : ''}`}
                     onClick={() => setSelected(i)}
-                    onMouseEnter={() => setPeek(i)}
+                    data-cursor-label={s.label}
                     aria-label={s.label}
                   >
-                    <i />
+                    {i + 1}
                   </button>
                 ))}
-              </div>
-            </div>
-
-            <div class="sm-commit">
-              <button
-                class={`sm-go${committing ? ' is-committing' : ''}`}
-                onClick={doStart}
-                disabled={committing}
-                data-cursor-label={committing ? '' : 'Deploy'}
-              >
-                {committing ? 'Spawning' : 'Spawn'}
-                <Play size={17} fill="currentColor" />
-              </button>
-              {/* Both input schemes, because both now work: the mouse is no
-                  longer a second-class way to drive this screen. */}
-              <div class="sm-keys">
-                <span class="sm-key">A</span>
-                <span class="sm-key">D</span>
-                <span class="sm-or">or</span>
-                <span class="sm-key">←</span>
-                <span class="sm-key">→</span>
-                navigate
-                <span class="sm-sep">·</span>
-                <span class="sm-key">↵</span>
-                confirm
-                <span class="sm-sep">·</span>
-                <span class="sm-key sm-key-wheel" aria-hidden="true" />
-                scroll
               </div>
             </div>
           </div>
