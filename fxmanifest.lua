@@ -6,7 +6,7 @@ description 'SPiceZ-Core â€” Standalone Spawning Manager'
 version '1.9.3'
 author 'SPiceZ-Core'
 
-ui_page 'ui/dist/index.html'
+-- ui_page 'ui/dist/index.html'  -- drawn by spz-hud now (web/public/apps/spz-spawn); uncomment + drop the shim to roll back
 
 shared_scripts {
     -- ox_lib was listed as a dependency but never actually loaded, so `lib` was
@@ -17,6 +17,7 @@ shared_scripts {
 }
 
 client_scripts {
+    '@spz-hud/shim.lua',   -- NUI goes through spz-hud
     'client/main.lua'
 }
 
@@ -29,6 +30,7 @@ files {
 }
 
 dependencies {
+    'spz-hud',
     'spawnmanager',
     'ox_lib',
     'spz-core',
