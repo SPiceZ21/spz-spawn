@@ -25,9 +25,8 @@ server_scripts {
     'server/main.lua'
 }
 
-files {
-    'ui/dist/**/*',
-}
+-- UI files are not shipped from here: spz-hud serves this resource's page
+-- (synced from ui/ by spz-hud/tools/sync-apps.mjs).
 
 dependencies {
     'spz-hud',
